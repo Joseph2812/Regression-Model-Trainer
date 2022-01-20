@@ -5,8 +5,9 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 import keras_tuner as kt
 
-class NonLinearRegressionModelTrainer:
+class RegressionModelTrainer:
         def __init__(self):
+                self.FILE_NAME = "BestModels/best_model.E{epoch:02d}-L{val_loss:.2f}.hdf5"
                 # For training
                 self.__train_features = [] # Input
                 self.__train_labels = [] # Output
@@ -105,14 +106,21 @@ class NonLinearRegressionModelTrainer:
                 best_epoch = val_loss_per_epoch.index(min(val_loss_per_epoch)) + 1
                 print("Best epoch: %d" % (best_epoch))
 
-                model.save("BestModel")
-
-        def __train_model(self, model):
+        def __train_model(self, model, epochs=50):
                 history = model.fit(
                         self.__train_features,
                         self.__train_labels,
-                        epochs=50,
+                        epochs=epochs,
                         validation_data=(self.__valid_features, self.__valid_labels),
+                        callbacks=[tf.keras.callbacks.ModelCheckpoint(
+                                self.FILE_NAME,
+                                monitor = "val_loss",
+                                verbose = 0,
+                                save_best_only = True,
+                                save_weights_only = False,
+                                mode = "min",
+                                save_freq = "epoch"
+                        )],
                         verbose=0 # Suppress logging
                 )
                 self.__plot_loss(history)
