@@ -81,8 +81,8 @@ class NonLinearRegressionModelTrainer:
                         objective="val_loss",
                         max_epochs=50,
                         factor=3,
-                        directory="my_dir",
-                        project_name="intro_to_kt"
+                        directory="Trials",
+                        project_name="DNN Models"
                 )
                 print(tuner.search_space_summary())
 
