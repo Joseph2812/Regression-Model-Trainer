@@ -2,4 +2,6 @@
 /cuda
 /TrainingData.csv
 /Trials
+/Results.txt
+/ModelPlots
 /__pycache__
