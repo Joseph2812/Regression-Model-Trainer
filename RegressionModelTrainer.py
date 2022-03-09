@@ -33,7 +33,7 @@ class RegressionModelTrainer:
                 """Initialises the trainer with a dataset.
 
                 Args:
-                        data_path (str): Path to the dataset, relative to this program's location.\n
+                        data_path (str): Path to the dataset in .csv format, relative to this program's location.\n
                         label_name (str): Name of the label to train towards, should match the column name in the dataset.
                 """
 
@@ -70,7 +70,7 @@ class RegressionModelTrainer:
                 """Loads a new dataset.
 
                 Args:
-                        data_path (str): Path to the dataset, relative to this program's location.\n
+                        data_path (str): Path to the dataset in .csv format, relative to this program's location.\n
                         label_name (str): Name of the label to train towards, should match the column name in the dataset.
                 """
                 
