@@ -12,7 +12,7 @@ class RegressionModelTrainer:
         Use start_search() to find the best model with your desired features.
         """
 
-        # Current Directory: MODELS_NAME\SESSION_NAME\CHECKPOINT_FILENAME
+        # Current directory: MODELS_NAME\SESSION_NAME\CHECKPOINT_FILENAME
         MODELS_NAME             = "BestModels"
         SESSION_NAME            = "TrainingSession_{count:d}"
         CHECKPOINT_FILENAME     = "model_E{epoch:02d}-VL{val_loss:f}"
@@ -23,7 +23,7 @@ class RegressionModelTrainer:
         PLOTS_DIRECTORY         = "ModelPlots"
         PLOT_LOSS               = True
 
-        # 1 iteration ~ max_epochs * (math.log(max_epochs, factor) ** 2) runs
+        # 1 iteration ~ max_epochs * (math.log(max_epochs, factor) ** 2) cumulative epochs
         MAX_EPOCHS              = 100
         FACTOR                  = 3
         HYPERBAND_ITERATIONS    = 3
@@ -58,7 +58,8 @@ class RegressionModelTrainer:
 
                 if os.path.exists(self.PLOTS_DIRECTORY):
                         shutil.rmtree(self.PLOTS_DIRECTORY) # Clear previous plots
-                if self.PLOT_LOSS: os.mkdir(self.PLOTS_DIRECTORY)
+                if self.PLOT_LOSS:
+                        os.mkdir(self.PLOTS_DIRECTORY)
 
                 with open(self.RESULTS_FILENAME, 'w') as f:
                         f.write("=====Best Models=====") # Creates txt file or clears an existing one
@@ -73,10 +74,7 @@ class RegressionModelTrainer:
                         label_name (str): Name of the label to train towards, should match the column name in the dataset.
                 """
                 
-                dataset = pd.read_csv(
-                        data_path,
-                        header=0,
-                )
+                dataset = pd.read_csv(data_path, header=0)
 
                 # Split data into training and validation segments
                 self.__data["Train"]["Features"] = dataset.sample(frac=0.8, random_state=0)
@@ -120,6 +118,7 @@ class RegressionModelTrainer:
                 self.__training_count += 1
 
         def __model_tuner(self):
+                # Search through various hyperparameters to see which model gives the lowest validation loss
                 tuner = kt.Hyperband(
                         self.__compile_model,
                         objective="val_loss",
@@ -136,30 +135,36 @@ class RegressionModelTrainer:
                         validation_data=(self.__selected_valid_features, self.__data["Valid"]["Labels"]),
                         callbacks=[tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=self.PATIENCE, restore_best_weights=True)]
                 )
-
                 best_hps = tuner.get_best_hyperparameters(num_trials=1)[0]
                 
                 # Build the best model (with best hyperparameters) and train it for MAX_EPOCHS
                 model = tuner.hypermodel.build(best_hps)
+
                 print("\nTraining the model with the best hyperparameters...")
                 history = self.__train_model(model)
 
                 print("\n=====Best Model=====")
 
                 # Print out which has the lowest validation loss at the best epoch
-                val_loss_per_epoch = history.history["val_loss"]               
-                best_epoch = val_loss_per_epoch.index(min(val_loss_per_epoch)) + 1
+                val_loss_per_epoch = history.history["val_loss"]
+
+                lowest_val_loss = min(val_loss_per_epoch)
+                best_epoch = val_loss_per_epoch.index(lowest_val_loss) + 1
+
                 print("\nBest epoch: {:d}".format(best_epoch))
-                print("Lowest validation loss: {:f}".format(min(val_loss_per_epoch)))               
+                print("Lowest validation loss: {:f}".format(lowest_val_loss))               
 
                 # Preview predictions of the new model
-                new_model = tf.keras.models.load_model(self.__current_dir.format(epoch=best_epoch, val_loss=min(val_loss_per_epoch)))
+                new_model = tf.keras.models.load_model(self.__current_dir.format(epoch=best_epoch, val_loss=lowest_val_loss))
+
                 print("\nPredicting with 5 validation features to preview the label:\n\n---Features---")
                 print(self.__selected_valid_features.head())
 
                 label_name = self.__data["Valid"]["Labels"].name
+
                 print("\n---Predicted Labels ({})---".format(label_name))
                 print(new_model.predict(self.__selected_valid_features)[:5].transpose())
+
                 print("\n---Validation Labels ({})---".format(label_name))
                 print(self.__data["Valid"]["Labels"].head(), end="\n\n")
 
@@ -169,7 +174,7 @@ class RegressionModelTrainer:
                                 count=self.__training_count,
                                 epoch=best_epoch,
                                 loss=min(history.history["loss"]),
-                                val_loss=min(val_loss_per_epoch)
+                                val_loss=lowest_val_loss
                         ))
 
         def __compile_model(self, hp):
