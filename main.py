@@ -16,21 +16,21 @@ np.set_printoptions(suppress=True)
 rmt = RMTrainer(DATA_PATH, LABEL_NAME)
 
 # Searches with every combination of data type
-rmt.start_search() # All
+rmt.start_tuning() # All
 
-rmt.start_search(ACCELERATION + ROT_VELOCITY + MAGNETISM)
-rmt.start_search(ACCELERATION + ROT_VELOCITY + TEMPERATURE)
-rmt.start_search(ACCELERATION + MAGNETISM + TEMPERATURE)
-rmt.start_search(ROT_VELOCITY + MAGNETISM + TEMPERATURE)
+rmt.start_tuning(ACCELERATION + ROT_VELOCITY + MAGNETISM)
+rmt.start_tuning(ACCELERATION + ROT_VELOCITY + TEMPERATURE)
+rmt.start_tuning(ACCELERATION + MAGNETISM + TEMPERATURE)
+rmt.start_tuning(ROT_VELOCITY + MAGNETISM + TEMPERATURE)
 
-rmt.start_search(ACCELERATION + ROT_VELOCITY)
-rmt.start_search(ACCELERATION + MAGNETISM)
-rmt.start_search(ACCELERATION + TEMPERATURE)
-rmt.start_search(ROT_VELOCITY + MAGNETISM)
-rmt.start_search(ROT_VELOCITY + TEMPERATURE)
-rmt.start_search(MAGNETISM + TEMPERATURE)
+rmt.start_tuning(ACCELERATION + ROT_VELOCITY)
+rmt.start_tuning(ACCELERATION + MAGNETISM)
+rmt.start_tuning(ACCELERATION + TEMPERATURE)
+rmt.start_tuning(ROT_VELOCITY + MAGNETISM)
+rmt.start_tuning(ROT_VELOCITY + TEMPERATURE)
+rmt.start_tuning(MAGNETISM + TEMPERATURE)
 
-rmt.start_search(ACCELERATION)
-rmt.start_search(ROT_VELOCITY)
-rmt.start_search(MAGNETISM)
-rmt.start_search(TEMPERATURE)
+rmt.start_tuning(ACCELERATION)
+rmt.start_tuning(ROT_VELOCITY)
+rmt.start_tuning(MAGNETISM)
+rmt.start_tuning(TEMPERATURE)
