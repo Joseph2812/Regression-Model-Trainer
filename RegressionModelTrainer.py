@@ -8,7 +8,7 @@ import keras_tuner as kt
 
 class RegressionModelTrainer:
         """
-        Trains on a given dataset, and tries to find the optimal model by minimising validation loss.\n
+        Trains on a given dataset, and tries to find the optimal model by minimising validation loss (MAE).\n
         Use start_tuning() to find the best model with your desired features.
         """
 
@@ -25,18 +25,22 @@ class RegressionModelTrainer:
         RESULTS_FILENAME        = "Results.txt"
         RESULTS_CONTENT         = "[Training Session {count:d}]: Epoch={epoch:d}, Loss={loss:f}, Validation_Loss={val_loss:f}. Hyperparameters: Layers={layers:d}, Units={units}, Learning_Rate={rate:.0e}."
         
-        # Hyperparameter tuning specific
+        # Hyperband parameters
         # 1 iteration ~ max_epochs * (math.log(max_epochs, factor) ** 2) cumulative epochs
         MAX_EPOCHS              = 100
         FACTOR                  = 3
-        HYPERBAND_ITERATIONS    = 3
+        HYPERBAND_ITERATIONS    = 2
         PATIENCE                = 5
 
-        # Model specific
-        MAX_HIDDEN_LAYERS       = 5
-        MAX_UNITS               = 256
+        # Hyperparameter tuning
+        MIN_HIDDEN_LAYERS       = 0
+        MAX_HIDDEN_LAYERS       = 16
+
         UNIT_STEP               = 32
-        LEARNING_RATE_CHOICE    = [1e-2, 1e-3, 1e-4]
+        MIN_UNITS               = UNIT_STEP
+        MAX_UNITS               = 1024
+
+        LEARNING_RATE_CHOICE    = [1e-2, 1e-3, 1e-4, 1e-5]
         
         def __init__(self, data_path:str, label_name:str, keep_previous_trials:bool=False):
                 """Initialises the trainer with a dataset.
@@ -207,15 +211,15 @@ class RegressionModelTrainer:
 
         def __compile_model(self, hp):
                 # Normalise the features
-                normalizer = tf.keras.layers.Normalization(axis=-1)
+                normalizer = tf.keras.layers.Normalization()
                 normalizer.adapt(np.array(self.__selected_train_features))
                 
                 # Create model
                 model = tf.keras.Sequential([normalizer])
 
-                for i in range(hp.Int("layers", 0, self.MAX_HIDDEN_LAYERS + 1)): # 0 layers will make the model linear
+                for i in range(hp.Int("layers", self.MIN_HIDDEN_LAYERS, self.MAX_HIDDEN_LAYERS)): # 0 layers will make the model linear
                        model.add(tf.keras.layers.Dense(
-                               units=hp.Int("units_" + str(i), self.UNIT_STEP, self.MAX_UNITS, step=self.UNIT_STEP),
+                               units=hp.Int("units_" + str(i), self.MIN_UNITS, self.MAX_UNITS, step=self.UNIT_STEP),
                                activation="relu"
                         ))
                 model.add(tf.keras.layers.Dense(1))
@@ -256,7 +260,7 @@ class RegressionModelTrainer:
                         plt.ylim([0, max(history.history["loss"]) * 1.1]) # 10% padding
                         plt.title(title)
                         plt.xlabel("Epoch")
-                        plt.ylabel("Error")
+                        plt.ylabel("Mean Absolute Error")
                         plt.legend()
                         plt.grid(True)
                         fig.savefig(self.PLOTS_DIRECTORY + '\\' + title + ".png")

@@ -11,9 +11,9 @@ MAGNETISM       = ["Xm", "Ym", "Zm"]
 # Make NumPy printouts easier to read.
 np.set_printoptions(suppress=True)
 
-rmt = RMTrainer(DATA_PATH, LABEL_NAME)
+rmt = RMTrainer(DATA_PATH, LABEL_NAME, True)
 
-# Searches with every combination of data type
+# ---Searches every combination of the data---
 rmt.start_tuning() # All
 
 rmt.start_tuning(ACCELERATION + ROT_VELOCITY)
