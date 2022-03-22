@@ -100,7 +100,7 @@ class RegressionModelTrainer:
                 self.__data["Train"]["Features"] = dataset.sample(frac=0.8, random_state=0)
                 self.__data["Valid"]["Features"] = dataset.drop(self.__data["Train"]["Features"].index)
 
-                # Split the output (target variable) into its own labels variable
+                # Split the labels into their own entry
                 self.__data["Train"]["Labels"] = self.__data["Train"]["Features"].pop(label_name)
                 self.__data["Valid"]["Labels"] = self.__data["Valid"]["Features"].pop(label_name)
 
@@ -209,15 +209,16 @@ class RegressionModelTrainer:
                                 rate=best_hps["learning_rate"]
                         ))
 
-        def __compile_model(self, hp):
+        def __compile_model(self, hp) -> any:
                 # Normalise the features
-                normalizer = tf.keras.layers.Normalization()
-                normalizer.adapt(np.array(self.__selected_train_features))
+                normaliser = tf.keras.layers.Normalization()
+                normaliser.adapt(np.array(self.__selected_train_features))
                 
-                # Create model
-                model = tf.keras.Sequential([normalizer])
+                # ---Create model---
+                model = tf.keras.Sequential([normaliser])
 
-                for i in range(hp.Int("layers", self.MIN_HIDDEN_LAYERS, self.MAX_HIDDEN_LAYERS)): # 0 layers will make the model linear
+                # 0 hidden layers will make the model linear
+                for i in range(hp.Int("layers", self.MIN_HIDDEN_LAYERS, self.MAX_HIDDEN_LAYERS)): 
                        model.add(tf.keras.layers.Dense(
                                units=hp.Int("units_" + str(i), self.MIN_UNITS, self.MAX_UNITS, step=self.UNIT_STEP),
                                activation="relu"
@@ -233,7 +234,7 @@ class RegressionModelTrainer:
                 )
                 return model
 
-        def __train_model(self, model):               
+        def __train_model(self, model) -> any:
                 history = model.fit(
                         self.__selected_train_features,
                         self.__data["Train"]["Labels"],
