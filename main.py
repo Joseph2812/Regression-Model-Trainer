@@ -1,5 +1,6 @@
 import numpy as np
-from RegressionModelTrainer import RegressionModelTrainer as RMTrainer
+from RegressionModelClasses.regression_model_trainer_tensorflow import RegressionModelTrainerTensorFlow as RMTrainerTF
+from RegressionModelClasses.regression_model_trainer_xgboost import RegressionModelTrainerXGBoost as RMTrainerXGB
 
 DATA_PATH       = "TrainingData.csv"
 LABEL_NAME      = "Viscosity"
@@ -11,15 +12,16 @@ MAGNETISM       = ["Xm", "Ym", "Zm"]
 # Make NumPy printouts easier to read.
 np.set_printoptions(suppress=True)
 
-rmt = RMTrainer(DATA_PATH, LABEL_NAME, True)
+RMTrainerXGB.reset_files()
+rmt_tf = RMTrainerXGB(DATA_PATH, LABEL_NAME)
 
 # ---Searches every combination of the data---
-rmt.start_tuning() # All
+rmt_tf.start_training() # All
 
-rmt.start_tuning(ACCELERATION + ROT_VELOCITY)
-rmt.start_tuning(ACCELERATION + MAGNETISM)
-rmt.start_tuning(ROT_VELOCITY + MAGNETISM)
+#rmt_tf.start_training(ACCELERATION + ROT_VELOCITY)
+#rmt_tf.start_training(ACCELERATION + MAGNETISM)
+#rmt_tf.start_training(ROT_VELOCITY + MAGNETISM)
 
-rmt.start_tuning(ACCELERATION)
-rmt.start_tuning(ROT_VELOCITY)
-rmt.start_tuning(MAGNETISM)
+#rmt_tf.start_training(ACCELERATION)
+#rmt_tf.start_training(ROT_VELOCITY)
+#rmt_tf.start_training(MAGNETISM)
