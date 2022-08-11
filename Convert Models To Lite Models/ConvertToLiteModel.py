@@ -2,7 +2,7 @@ import tensorflow as tf
 import os
 
 os.chdir("Convert Models To Lite Models")
-SAVED_MODEL_DIRECTORY = "0 - Acceleration + Rot_Velocity + Magnetism\\model_E45-VL0.003844" # Example path
+SAVED_MODEL_DIRECTORY = os.path.join("0 - Acceleration + Rot_Velocity + Magnetism, model_E45-VL0.003844") # Example path
 
 converter = tf.lite.TFLiteConverter.from_saved_model(SAVED_MODEL_DIRECTORY)
 converter.optimizations = [tf.lite.Optimize.DEFAULT] # Reduces both latency and file size (dynamic range quantization)

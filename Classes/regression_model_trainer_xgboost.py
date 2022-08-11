@@ -1,9 +1,9 @@
-from sklearn.metrics import mean_absolute_error
 import xgboost as xgb
-from RegressionModelClasses.regression_model_trainer import RegressionModelTrainer as RMTrainer
+from sklearn.metrics import mean_absolute_error
+from Classes.regression_model_trainer import RegressionModelTrainer as RMTrainer
 
 class RegressionModelTrainerXGBoost(RMTrainer):
-    RESULTS_CONTENT = "<XGBoost>: Epoch={epoch:d}, Loss={loss:f}, Validation_Loss={val_loss:f}, Best_Score={score:f}, Best_NTree_Limit={ntree_limit:f}, ETA={eta:f}"
+    RESULTS_CONTENT = "<XGBoost>: Best_Score={score:f}, Best_NTree_Limit={ntree_limit:d}, ETA={eta:f}."
 
     OBJECTIVE = "reg:squarederror"
     EVALUATION_METRIC = "rmse"
@@ -13,8 +13,8 @@ class RegressionModelTrainerXGBoost(RMTrainer):
     # GBTree Parameters
     ETA = 0.3 # Learning rate
 
-    def __init__(self, data_path:str, label_name:str):
-        super().__init__(data_path, label_name)
+    def __init__(self):
+        super().__init__()
         self._set_trainer_name("XGBoost")
 
         xgb.config_context(verbosity=2)
@@ -26,20 +26,23 @@ class RegressionModelTrainerXGBoost(RMTrainer):
         results = model.evals_result()
 
         (best_epoch, lowest_val_loss) = self._get_best_epoch_and_val_loss(results["validation_1"]["rmse"])
+        predictions = model.predict(self._selected_train_features)
+        test_predictions = model.predict(self._selected_test_features)
 
-        val_predictions = model.predict(self._selected_valid_features)[:5]
-        model.save_model(self._current_dir.format(epoch=best_epoch, val_loss=lowest_val_loss) + ".model")
-
-        self._save_results(self.RESULTS_CONTENT.format(
-            epoch=model.best_iteration + 1,
-            loss=results["validation_1"]["rmse"][best_epoch - 1],
+        model.save_model(self._model_dir.format(epoch=best_epoch, val_loss=lowest_val_loss) + ".model")
+        self._save_results(
+            epoch=best_epoch,
+            loss=results["validation_0"]["rmse"][best_epoch - 1],
             val_loss=lowest_val_loss,
-            score=model.best_score,
-            ntree_limit=model.best_ntree_limit,
-            eta=self.ETA
-        ))
+            test_loss=mean_absolute_error(self._data["test"]["labels"], test_predictions),
+            unique_results=self.RESULTS_CONTENT.format(
+                score=model.best_score,
+                ntree_limit=model.best_ntree_limit,
+                eta=self.ETA
+            )          
+        )
 
-        return (self.EVALUATION_METRIC, results["validation_0"]["rmse"], results["validation_1"]["rmse"], val_predictions)
+        return (self.EVALUATION_METRIC, results["validation_0"]["rmse"], results["validation_1"]["rmse"], predictions)
 
     def __train_model(self) -> xgb.XGBModel:
         model = xgb.XGBRegressor().set_params(

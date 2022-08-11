@@ -1,7 +1,12 @@
-/BestModels
-/cuda
-/TrainingData.csv
-/Trials
-/Results.txt
-/ModelPlots
+# Program Generated
+/Output
+/config.json
+/TensorFlow Hyperparameter Trials
+
+# Caches
 /__pycache__
+/Classes/__pycache__
+
+# External
+/TrainingData.csv
+/cuda
