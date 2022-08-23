@@ -175,14 +175,14 @@ class DataSelectionFrame(ttk.Labelframe):
 
         self.__selected_label_var.trace_add("write", self.__update_label_config)
 
-        if self.__selected_label_var.get() != "": self.create_model_frame()       
+        if self.__selected_label_var.get() in self.__column_names:
+            self.create_model_frame()       
     
     def destroy(self):
         if self.__model_frame != None: self.__model_frame.destroy()
 
         super().destroy()
         
-
     def create_model_frame(self):
         if self.__model_frame != None: self.__model_frame.destroy()
 
