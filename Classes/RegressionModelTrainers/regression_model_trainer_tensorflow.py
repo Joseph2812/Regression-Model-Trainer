@@ -3,7 +3,8 @@ import shutil
 import tensorflow as tf
 import keras_tuner as kt
 from sklearn.metrics import mean_absolute_error
-from Classes.regression_model_trainer import RegressionModelTrainer as RMTrainer
+from Classes.LivePlotter.plotter_process_manager import PlotterProcessManager
+from Classes.RegressionModelTrainers.regression_model_trainer import RegressionModelTrainer as RMTrainer
 
 class RegressionModelTrainerTensorFlow(RMTrainer):
     RESULTS_CONTENT  = "<TensorFlow>: Hyperparameters: Layers={layers:d}, Learning_Rate={rate:.0e}, Units={units}."
@@ -40,6 +41,7 @@ class RegressionModelTrainerTensorFlow(RMTrainer):
         """
         
         super().__init__()
+
         self._set_trainer_name("TensorFlow")
 
         if not keep_previous_trials:
@@ -47,7 +49,6 @@ class RegressionModelTrainerTensorFlow(RMTrainer):
                 shutil.rmtree(self.TRIALS_DIRECTORY) # Clear previous trials
 
     def _train_and_save_best_model(self) -> tuple[str, list[float], list[float], list[float]]:
-        # Search through various hyperparameters to see which model gives the lowest validation loss
         tuner = kt.Hyperband(
             self.__compile_model,
             objective="val_loss",
@@ -57,26 +58,40 @@ class RegressionModelTrainerTensorFlow(RMTrainer):
             directory=self.TRIALS_DIRECTORY,
             project_name=self.SESSION_NAME.format(count=self._training_count)
         )
+
+        plot_manager = PlotterProcessManager("Validation Loss at Current Hyperparameters", "Epoch", self.parameters["objective"])
+
+        # Search through various hyperparameters to see which model gives the lowest validation loss
         tuner.search(
             self._selected_train_features,
             self._data["train"]["labels"],
             epochs=self.parameters["max_epochs"],
             validation_data=(self._selected_valid_features, self._data["valid"]["labels"]),
-            callbacks=[tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=self.parameters["patience"], restore_best_weights=True)]
-        )
-        best_hps = tuner.get_best_hyperparameters()[0]
-        
+            callbacks=[
+                tf.keras.callbacks.EarlyStopping(monitor="val_loss", patience=self.parameters["patience"], restore_best_weights=True),
+                tf.keras.callbacks.LambdaCallback(
+                    on_train_begin=lambda _: plot_manager.plot(None, None)
+                ),
+                tf.keras.callbacks.LambdaCallback(
+                    on_epoch_end=lambda epoch, logs: plot_manager.plot(epoch + 1, logs["val_loss"])
+                )
+            ]
+        ) 
+       
         # Build the best model (with best hyperparameters) and train it for MAX_EPOCHS
+        best_hps = tuner.get_best_hyperparameters()[0]
         model = tuner.hypermodel.build(best_hps)
 
         print("\n[TensorFlow] Training the model with the best hyperparameters...")
-        history = self.__train_model(model)      
+        history = self.__train_model(model, plot_manager)
+        plot_manager.end_process()
+
         val_losses = history.history["val_loss"]
         (best_epoch, lowest_val_loss) = self._get_best_epoch_and_val_loss(val_losses)
 
         # Get predictions of the new model
         model = tf.keras.models.load_model(self._model_dir.format(epoch=best_epoch, val_loss=lowest_val_loss))
-        predictions = model.predict(self._selected_train_features)
+        predictions = model.predict(self._all_selected_features)
         test_predictions = model.predict(self._selected_test_features)
         
         # Saving best model data
@@ -98,21 +113,29 @@ class RegressionModelTrainerTensorFlow(RMTrainer):
 
         return (self.parameters["objective"], history.history["loss"], val_losses, predictions)
 
-    def __train_model(self, model) -> any:
+    def __train_model(self, model, plot_manager) -> any:
         history = model.fit(
             self._selected_train_features,
             self._data["train"]["labels"],
             epochs=self.parameters["max_epochs"],
             validation_data=(self._selected_valid_features, self._data["valid"]["labels"]),
-            callbacks=[tf.keras.callbacks.ModelCheckpoint(
-                self._model_dir,
-                monitor="val_loss",
-                verbose=0,
-                save_best_only=True,
-                save_weights_only=False,
-                mode="min",
-                save_freq="epoch"
-            )]
+            callbacks=[
+                tf.keras.callbacks.ModelCheckpoint(
+                    self._model_dir,
+                    monitor="val_loss",
+                    verbose=0,
+                    save_best_only=True,
+                    save_weights_only=False,
+                    mode="min",
+                    save_freq="epoch"
+                ),
+                tf.keras.callbacks.LambdaCallback(
+                    on_train_begin=lambda _: plot_manager.plot(None, None)
+                ),
+                tf.keras.callbacks.LambdaCallback(
+                    on_epoch_end=lambda epoch, logs: plot_manager.plot(epoch + 1, logs["val_loss"])
+                )
+            ]
         )
 
         return history

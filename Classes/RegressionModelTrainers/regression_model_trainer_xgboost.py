@@ -1,6 +1,6 @@
 import xgboost as xgb
 from sklearn.metrics import mean_absolute_error
-from Classes.regression_model_trainer import RegressionModelTrainer as RMTrainer
+from Classes.RegressionModelTrainers.regression_model_trainer import RegressionModelTrainer as RMTrainer
 
 class RegressionModelTrainerXGBoost(RMTrainer):
     RESULTS_CONTENT = "<XGBoost>: Best_Score={score:f}, Best_NTree_Limit={ntree_limit:d}, ETA={eta:f}."
@@ -26,7 +26,8 @@ class RegressionModelTrainerXGBoost(RMTrainer):
         results = model.evals_result()
 
         (best_epoch, lowest_val_loss) = self._get_best_epoch_and_val_loss(results["validation_1"]["rmse"])
-        predictions = model.predict(self._selected_train_features)
+
+        predictions = model.predict(self._all_selected_features)
         test_predictions = model.predict(self._selected_test_features)
 
         model.save_model(self._model_dir.format(epoch=best_epoch, val_loss=lowest_val_loss) + ".model")

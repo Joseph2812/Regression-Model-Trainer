@@ -24,9 +24,9 @@ class RegressionModelTrainer:
     SESSION_NAME   = "TrainingSession_{count:d}"
     MODEL_FILENAME = "model_E{epoch:02d}-VL{val_loss:f}"
 
-    PLOTS_ROOT = os.path.join(MASTER_ROOT, "ModelPlots")
+    PLOTS_ROOT = os.path.join(MASTER_ROOT, "Plots")
 
-    LOSS_DATA_ROOT = os.path.join(MASTER_ROOT, "LossData")
+    DATA_ROOT = os.path.join(MASTER_ROOT, "Data")
 
     RESULTS_DIRECTORY = os.path.join(MASTER_ROOT, "Results.txt")
     
@@ -56,6 +56,9 @@ class RegressionModelTrainer:
 
         if RegressionModelTrainer._data == None: RegressionModelTrainer.__setupFilesAndData()
 
+        # Keep all the labels in one variable (for response plot)
+        RegressionModelTrainer._all_labels = dataset[label_name]
+
         # Split data into training, validation, and test segments
         RegressionModelTrainer._data["train"]["features"] = dataset.sample(frac=0.8, random_state=0)
         remainder = dataset.drop(RegressionModelTrainer._data["train"]["features"].index) # 20% Remainder
@@ -76,7 +79,7 @@ class RegressionModelTrainer:
 
         # ---Setting up directories---
         os.mkdir(RegressionModelTrainer.MODELS_ROOT)
-        os.mkdir(RegressionModelTrainer.LOSS_DATA_ROOT)
+        os.mkdir(RegressionModelTrainer.DATA_ROOT)
         os.mkdir(RegressionModelTrainer.PLOTS_ROOT)           
 
         with open(RegressionModelTrainer.RESULTS_DIRECTORY, 'w') as f:
@@ -104,9 +107,12 @@ class RegressionModelTrainer:
         self._selected_valid_features:pd.DataFrame
         self._selected_test_features:pd.DataFrame
 
+        self._all_selected_features:pd.DataFrame
+        self._all_labels:pd.DataFrame
+
         # Assigned to by derived classes through _set_trainer_name()
         self.__trainer_name:str
-        self.__loss_data_dir:str
+        self.__data_dir:str
         self.__plots_dir:str
 
     def start_training(self, selected_columns:list[str]=[]):
@@ -134,6 +140,9 @@ class RegressionModelTrainer:
             self._selected_valid_features = self._data["valid"]["features"][selected_columns]
             self._selected_test_features = self._data["test"]["features"][selected_columns]
 
+        self._all_selected_features = pd.concat([self._selected_train_features, self._selected_valid_features, self._selected_test_features])
+        self._all_selected_features.sort_index()
+
         # Show selected data (preview to see if it's setup right)
         print("\n---Selected Training Data---")
         print(self._selected_train_features.head(), end="\n\n")
@@ -157,8 +166,8 @@ class RegressionModelTrainer:
 
         os.mkdir(os.path.join(self.MODELS_ROOT, trainer_name))
 
-        self.__loss_data_dir = os.path.join(self.LOSS_DATA_ROOT, trainer_name)
-        os.mkdir(self.__loss_data_dir)
+        self.__data_dir = os.path.join(self.DATA_ROOT, trainer_name)
+        os.mkdir(self.__data_dir)
 
         # Make trainer's plot directory
         self.__plots_dir = os.path.join(self.PLOTS_ROOT, trainer_name)
@@ -201,11 +210,18 @@ class RegressionModelTrainer:
         print("Lowest validation loss: {:f}".format(lowest_val_loss))
 
         # Save loss & val_loss data
-        with open(os.path.join(self.__loss_data_dir, self.SESSION_NAME.format(count=self._training_count) + ".csv"), 'w') as f:
+        with open(os.path.join(self.__data_dir, self.SESSION_NAME.format(count=self._training_count) + "_Loss.csv"), 'w') as f:
             f.write("Epoch,loss,val_loss\n")
             for i in range(len(losses)):
                 f.write(f"{i+1},{losses[i]},{val_losses[i]}")
                 if i != len(losses) - 1: f.write('\n')
+
+        # Save response data
+        with open(os.path.join(self.__data_dir, self.SESSION_NAME.format(count=self._training_count) + "_Response.csv"), 'w') as f:
+            f.write("Actual,Predicted\n")
+            for i in range(len(self._all_labels)):
+                f.write(f"{self._all_labels[i]},{float(predictions[i])}") # float() removes square brackets
+                if i != len(self._all_labels) - 1: f.write('\n')
 
         self.__plot_model(eval_metric, losses, val_losses, predictions)
 
@@ -228,10 +244,10 @@ class RegressionModelTrainer:
         plt.grid(True)
         fig.savefig(general_dir.format("_Loss"))
 
-        # Plot response
+        # Plots response
         fig = plt.figure()
         plt.plot(predictions, label="Predictions")
-        plt.plot(list(range(0, len(self._data["train"]["labels"]))), self._data["train"]["labels"], label="Actual") # pd.Series starts at 1 so set to: 0-Length
+        plt.plot(self._all_labels, label="Actual")
         plt.xlim([0, len(predictions)])
         plt.title(general_title + "_Response")
         plt.xlabel("Datapoint")

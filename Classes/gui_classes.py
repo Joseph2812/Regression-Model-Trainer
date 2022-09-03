@@ -1,14 +1,15 @@
 import json
 import os
 import pandas as pd
-from tkinter import *
+import traceback
+import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog as fd
-from Classes.regression_model_trainer import RegressionModelTrainer as RMTrainer
-from Classes.regression_model_trainer_tensorflow import RegressionModelTrainerTensorFlow as RMTrainerTF
-from Classes.regression_model_trainer_xgboost import RegressionModelTrainerXGBoost as RMTrainerXGB
+from Classes.RegressionModelTrainers.regression_model_trainer import RegressionModelTrainer as RMTrainer
+from Classes.RegressionModelTrainers.regression_model_trainer_tensorflow import RegressionModelTrainerTensorFlow as RMTrainerTF
+from Classes.RegressionModelTrainers.regression_model_trainer_xgboost import RegressionModelTrainerXGBoost as RMTrainerXGB
 
-class RootWindow(Tk):
+class RootWindow(tk.Tk):
     CONFIG_DIRECTORY = "config.json"
 
     dataset:pd.DataFrame
@@ -35,6 +36,7 @@ class RootWindow(Tk):
                 RootWindow.config = json.load(f)
 
         # Cache original values to check for changes when beginning training
+        self.__old_data_path = str(self.config["data_path"])
         self.__old_feature_lists:list[list[str]] = self.config["feature_lists"].copy()
         self.__old_tf_parameters:dict[str, any] = self.config["parameters"]["tensorflow"].copy()
 
@@ -52,14 +54,13 @@ class RootWindow(Tk):
 
     def destroy(self):
         RootWindow.train_button = None
-        self.__save_config()
-
         super().destroy()
-        quit()
+
+        self.__save_config()     
+        self.quit()
 
     def __load_into_training(self):
-        self.__save_config()
-        self.train_button.configure(state="disabled")
+        self.destroy()
 
         try:
             rmt:RMTrainer
@@ -68,8 +69,12 @@ class RootWindow(Tk):
             if self.config["algorithms"]["using_tensorflow"]:
                 RMTrainerTF.parameters = self.config["parameters"]["tensorflow"]
                 
-                # If features or parameters change, then clear previous trials.                            
-                rmt = RMTrainerTF(self.__old_feature_lists == self.config["feature_lists"] and self.__old_tf_parameters == self.config["parameters"]["tensorflow"])
+                # If data, features, or parameters change, then clear the previous trials.                            
+                rmt = RMTrainerTF(
+                    self.__old_data_path == self.config["data_path"] and
+                    self.__old_feature_lists == self.config["feature_lists"] and
+                    self.__old_tf_parameters == self.config["parameters"]["tensorflow"]
+                )
 
                 for feature_list in self.config["feature_lists"]:
                     rmt.start_training(feature_list)
@@ -79,24 +84,24 @@ class RootWindow(Tk):
                 rmt = RMTrainerXGB()
                 for feature_list in self.config["feature_lists"]:
                     rmt.start_training(feature_list)
-        finally:
-            self.destroy()
+        except:
+            traceback.print_exc()
 
     def __save_config(self):
         with open(self.CONFIG_DIRECTORY, 'w') as f:
             json.dump(self.config, f, indent=4)
 
 class AlgorithmFrame(ttk.Labelframe):
-    def __init__(self, master):
-        super().__init__(master, text="Algorithms to use")
-        
-        self.__using_tensorflow_var = BooleanVar(self, RootWindow.config["algorithms"]["using_tensorflow"])
-        self.__using_xgboost_var = BooleanVar(self, RootWindow.config["algorithms"]["using_xgboost"])
+    def __init__(self, master:tk.Tk):
+        super().__init__(master, text="Algorithms to use", labelanchor='n')
+
+        self.__using_tensorflow_var = tk.BooleanVar(self, RootWindow.config["algorithms"]["using_tensorflow"])
+        self.__using_xgboost_var = tk.BooleanVar(self, RootWindow.config["algorithms"]["using_xgboost"])
 
         self.grid(column=0, row=1)
 
-        ttk.Checkbutton(self, text="TensorFlow", variable=self.__using_tensorflow_var, offvalue=False, onvalue=True).pack(side=LEFT)
-        ttk.Checkbutton(self, text="XGBoost", variable=self.__using_xgboost_var, offvalue=False, onvalue=True).pack(side=LEFT)
+        ttk.Checkbutton(self, text="TensorFlow", variable=self.__using_tensorflow_var, offvalue=False, onvalue=True).pack(side=tk.LEFT)
+        ttk.Checkbutton(self, text="XGBoost", variable=self.__using_xgboost_var, offvalue=False, onvalue=True).pack(side=tk.LEFT)
 
         self.__using_tensorflow_var.trace_add("write", self.__update_tf_config)
         self.__using_xgboost_var.trace_add("write", self.__update_xgb_config)
@@ -105,10 +110,10 @@ class AlgorithmFrame(ttk.Labelframe):
     def __update_xgb_config(self, *args): RootWindow.config["algorithms"]["using_xgboost"] = self.__using_xgboost_var.get()
 
 class DataPathFrame(ttk.Frame):
-    def __init__(self, master:Tk):
+    def __init__(self, master:tk.Tk):
         super().__init__(master)
 
-        self.data_path_var = StringVar(self, value=RootWindow.config["data_path"])
+        self.data_path_var = tk.StringVar(self, value=RootWindow.config["data_path"])
         self.data_selection_frame:DataSelectionFrame = None
         self.error_label:ttk.Label = None  
 
@@ -161,17 +166,17 @@ class DataPathFrame(ttk.Frame):
         return True
 
 class DataSelectionFrame(ttk.Labelframe):
-    def __init__(self, master:Tk):
+    def __init__(self, master:tk.Tk):
         super().__init__(master, text="Select which label you want the model to predict:", labelanchor='n')   
 
         self.__model_frame:ModelFrame = None
         self.__column_names:list[str] = RootWindow.dataset.columns.values.tolist()
-        self.__selected_label_var = StringVar(self, RootWindow.config["label"])
+        self.__selected_label_var = tk.StringVar(self, RootWindow.config["label"])
 
         self.grid(column=0, row=3, padx=10, pady=(0, 20))
 
         for name in self.__column_names:
-            ttk.Radiobutton(self, text=name, value=name, variable=self.__selected_label_var, command=self.create_model_frame).pack(side=LEFT, padx=10)
+            ttk.Radiobutton(self, text=name, value=name, variable=self.__selected_label_var, command=self.create_model_frame).pack(side=tk.LEFT, expand=True, padx=10)
 
         self.__selected_label_var.trace_add("write", self.__update_label_config)
 
@@ -199,12 +204,12 @@ class ModelFrame(ttk.Labelframe):
         def __init__(self, master:ttk.Frame, default_features:list[str]=None, **kwargs):
             super().__init__(master, **kwargs)
 
-            self.check_buttons:list[dict[str, BooleanVar]] = [] # [{name:str, is_active:boolVar}]
+            self.check_buttons:list[dict[str, tk.BooleanVar]] = [] # [{name:str, is_active:boolVar}]
             self.__model_frame:ModelFrame = master
 
             for name in ModelFrame.feature_names:
                 if default_features == None:
-                    is_active = BooleanVar(self, False)
+                    is_active = tk.BooleanVar(self, False)
                 else:
                     exists:bool = False
                     for feature in default_features:
@@ -212,16 +217,16 @@ class ModelFrame(ttk.Labelframe):
                             exists = True
                             break
                     
-                    if exists: is_active = BooleanVar(self, True)
-                    else:      is_active = BooleanVar(self, False)
+                    if exists: is_active = tk.BooleanVar(self, True)
+                    else:      is_active = tk.BooleanVar(self, False)
                     
-                ttk.Checkbutton(self, text=name, offvalue=False, onvalue=True, variable=is_active).pack(side=LEFT, padx=10)
+                ttk.Checkbutton(self, text=name, offvalue=False, onvalue=True, variable=is_active).pack(side=tk.LEFT, padx=10)
 
                 self.check_buttons.append({"name": name, "is_active_var": is_active})
                 is_active.trace_add("write", self.__model_frame.update_features_config)
 
-            ttk.Button(self, text="Select All/None", command=self.__selectOrDeselectBoxes).pack(side=TOP)
-            ttk.Button(self, text="Remove", command=self.__remove).pack(side=BOTTOM)
+            ttk.Button(self, text="Select All/None", command=self.__selectOrDeselectBoxes).pack(side=tk.TOP)
+            ttk.Button(self, text="Remove", command=self.__remove).pack(side=tk.BOTTOM)
 
         def __selectOrDeselectBoxes(self):
             hasAllActiveButtons = True
@@ -237,7 +242,7 @@ class ModelFrame(ttk.Labelframe):
 
         def __remove(self): self.__model_frame.remove_feature_frame(self)
 
-    def __init__(self, master:Tk, feature_names):
+    def __init__(self, master:tk.Tk, feature_names):
         super().__init__(master, text="Select which features you want the model to train with (Select at least two features):", labelanchor='n')
 
         ModelFrame.feature_names:list[str] = feature_names
@@ -246,7 +251,7 @@ class ModelFrame(ttk.Labelframe):
         self.__addButton = ttk.Button(self, text="Add Model", command=self.__add_new_feature_frame)
         
         self.grid(column=0, row=4, padx=10, pady=20)
-        self.__addButton.pack(side=BOTTOM, pady=(0, 10))
+        self.__addButton.pack(side=tk.BOTTOM, pady=(0, 10))
 
         RootWindow.train_button.configure(state="normal")
 
@@ -280,7 +285,7 @@ class ModelFrame(ttk.Labelframe):
         feature_frame = self.FeatureFrame(self, default_features, text=f"TrainingSession_{len(self.__feature_frames)} Features")
         self.__feature_frames.append(feature_frame)
 
-        feature_frame.pack(side=TOP, pady=10)
+        feature_frame.pack(side=tk.TOP, pady=10)
 
         self.update_features_config()
 
@@ -291,8 +296,8 @@ class ModelFrame(ttk.Labelframe):
         super().destroy()
 
 # ---For configuration window---
-class ConfigureWindow(Toplevel):
-    def __init__(self, master:Tk):
+class ConfigureWindow(tk.Toplevel):
+    def __init__(self, master:tk.Tk):
         super().__init__(master)
 
         self.title("Trainer Configurations")
@@ -301,6 +306,7 @@ class ConfigureWindow(Toplevel):
         notebook = ttk.Notebook(self)
         tf_tab = TensorFlowFrame(notebook)
         xgb_tab = ttk.Frame(notebook)
+
         notebook.add(tf_tab, text="TensorFlow")
         notebook.add(xgb_tab, text="XGBoost")
         notebook.pack()
@@ -309,67 +315,66 @@ class ConfigureWindow(Toplevel):
 
 class TensorFlowFrame(ttk.Frame):
     class ObjectiveFrame(ttk.Frame):
-        def __init__(self, master:ttk.Frame, parameters):
+        def __init__(self, master:ttk.Frame, parameters:dict[str, any]):
             super().__init__(master)
 
-            self.objective_var = StringVar(self, parameters["objective"])
+            self.objective_var = tk.StringVar(self, parameters["objective"])
 
-            ttk.Label(self, text="Objective:")              .grid(column=0, row=0, padx=(10, 0), pady=5, sticky=E)
+            ttk.Label(self, text="Objective:")              .grid(column=0, row=0, padx=(10, 0), pady=5, sticky=tk.E)
             ttk.Entry(self, textvariable=self.objective_var).grid(column=1, row=0, padx=10, pady=5)
 
     class HyperbandFrame(ttk.Labelframe):
-        def __init__(self, master:ttk.Frame, parameters):
+        def __init__(self, master:ttk.Frame, parameters:dict[str, any]):
             super().__init__(master, text="Hyperband Parameters")
 
-            self.max_epochs_var     = IntVar(self, parameters["max_epochs"])
-            self.factor_var         = IntVar(self, parameters["factor"])
-            self.hyperband_iter_var = IntVar(self, parameters["hyperband_iterations"])
-            self.patience_var       = IntVar(self, parameters["patience"])
+            self.max_epochs_var     = tk.IntVar(self, parameters["max_epochs"])
+            self.factor_var         = tk.IntVar(self, parameters["factor"])
+            self.hyperband_iter_var = tk.IntVar(self, parameters["hyperband_iterations"])
+            self.patience_var       = tk.IntVar(self, parameters["patience"])
 
-            ttk.Label(self, text="Max Epochs:")                  .grid(column=0, row=0, padx=(10, 0), pady=5, sticky=E)
+            ttk.Label(self, text="Max Epochs:")                  .grid(column=0, row=0, padx=(10, 0), pady=5, sticky=tk.E)
             ttk.Entry(self, textvariable=self.max_epochs_var)    .grid(column=1, row=0, padx=10, pady=5)
             
-            ttk.Label(self, text="Factor:")                      .grid(column=2, row=0, padx=(10, 0), pady=5, sticky=E)
+            ttk.Label(self, text="Factor:")                      .grid(column=2, row=0, padx=(10, 0), pady=5, sticky=tk.E)
             ttk.Entry(self, textvariable=self.factor_var)        .grid(column=3, row=0, padx=10, pady=5)        
             
-            ttk.Label(self, text="Hyperband Iterations:")        .grid(column=0, row=1, padx=(10, 0), pady=5, sticky=E)
+            ttk.Label(self, text="Hyperband Iterations:")        .grid(column=0, row=1, padx=(10, 0), pady=5, sticky=tk.E)
             ttk.Entry(self, textvariable=self.hyperband_iter_var).grid(column=1, row=1, padx=10, pady=5)
 
-            ttk.Label(self, text="Patience:")                    .grid(column=2, row=1, padx=(10, 0), pady=5, sticky=E)
+            ttk.Label(self, text="Patience:")                    .grid(column=2, row=1, padx=(10, 0), pady=5, sticky=tk.E)
             ttk.Entry(self, textvariable=self.patience_var)      .grid(column=3, row=1, padx=10, pady=5)
     
     class HyperparameterFrame(ttk.LabelFrame):
-        def __init__(self, master:ttk.Frame, parameters):
+        def __init__(self, master:ttk.Frame, parameters:dict[str, any]):
             super().__init__(master, text="Hyperparameter Tuning")
 
-            self.min_hdn_layers_var = IntVar(self, parameters["min_hidden_layers"])
-            self.max_hdn_layers_var = IntVar(self, parameters["max_hidden_layers"])
+            self.min_hdn_layers_var = tk.IntVar(self, parameters["min_hidden_layers"])
+            self.max_hdn_layers_var = tk.IntVar(self, parameters["max_hidden_layers"])
 
-            self.min_units_var = IntVar(self, parameters["min_units"])
-            self.max_units_var = IntVar(self, parameters["max_units"])
-            self.unit_step_var = IntVar(self, parameters["unit_step"])
+            self.min_units_var = tk.IntVar(self, parameters["min_units"])
+            self.max_units_var = tk.IntVar(self, parameters["max_units"])
+            self.unit_step_var = tk.IntVar(self, parameters["unit_step"])
 
-            # Change to be length variable later
-            self.lrning_rate_choice0_var = DoubleVar(self, parameters["learning_rate_choice"][0])
-            self.lrning_rate_choice1_var = DoubleVar(self, parameters["learning_rate_choice"][1])
-            self.lrning_rate_choice2_var = DoubleVar(self, parameters["learning_rate_choice"][2])
+            self.lrning_rate_choice0_var = tk.DoubleVar(self, parameters["learning_rate_choice"][0])
+            self.lrning_rate_choice1_var = tk.DoubleVar(self, parameters["learning_rate_choice"][1])
+            self.lrning_rate_choice2_var = tk.DoubleVar(self, parameters["learning_rate_choice"][2])
 
-            ttk.Label(self, text="Minimum Hidden Layers:")            .grid(column=0, row=0, padx=(10, 0), pady=5, sticky=E)
+            ttk.Label(self, text="Minimum Hidden Layers:")            .grid(column=0, row=0, padx=(10, 0), pady=5, sticky=tk.E)
             ttk.Entry(self, textvariable=self.min_hdn_layers_var)     .grid(column=1, row=0, padx=10, pady=5)
 
-            ttk.Label(self, text="Maximum Hidden Layers:")            .grid(column=2, row=0, padx=(10, 0), pady=5, sticky=E)
+            ttk.Label(self, text="Maximum Hidden Layers:")            .grid(column=2, row=0, padx=(10, 0), pady=5, sticky=tk.E)
             ttk.Entry(self, textvariable=self.max_hdn_layers_var)     .grid(column=3, row=0, padx=10, pady=5)
 
-            ttk.Label(self, text="Minimum Units/Neurons:")            .grid(column=0, row=1, padx=(10, 0), pady=5, sticky=E)
+            ttk.Label(self, text="Minimum Units/Neurons:")            .grid(column=0, row=1, padx=(10, 0), pady=5, sticky=tk.E)
             ttk.Entry(self, textvariable=self.min_units_var)          .grid(column=1, row=1, padx=10, pady=5)
 
-            ttk.Label(self, text="Maximum Units/Neurons:")            .grid(column=2, row=1, padx=(10, 0), pady=5, sticky=E)
+            ttk.Label(self, text="Maximum Units/Neurons:")            .grid(column=2, row=1, padx=(10, 0), pady=5, sticky=tk.E)
             ttk.Entry(self, textvariable=self.max_units_var)          .grid(column=3, row=1, padx=10, pady=5)
 
-            ttk.Label(self, text="Unit Step:")                        .grid(column=4, row=1, padx=(10, 0), pady=5, sticky=E)
+            ttk.Label(self, text="Unit Step:")                        .grid(column=4, row=1, padx=(10, 0), pady=5, sticky=tk.E)
             ttk.Entry(self, textvariable=self.unit_step_var)          .grid(column=5, row=1, padx=10, pady=5)
 
-            ttk.Label(self, text="Learning Rate Choice:")             .grid(column=0, row=2, padx=(10, 0), pady=5, sticky=E)
+            ttk.Label(self, text="Learning Rate Choice:")             .grid(column=0, row=2, padx=(10, 0), pady=5, sticky=tk.E)
             ttk.Entry(self, textvariable=self.lrning_rate_choice0_var).grid(column=1, row=2, padx=10, pady=5)
             ttk.Entry(self, textvariable=self.lrning_rate_choice1_var).grid(column=2, row=2, padx=10, pady=5)
             ttk.Entry(self, textvariable=self.lrning_rate_choice2_var).grid(column=3, row=2, padx=10, pady=5)
@@ -385,9 +390,9 @@ class TensorFlowFrame(ttk.Frame):
         self.__hyperparameter_frame = self.HyperparameterFrame(self, self.__parameters)
 
         # Create & link GUI       
-        self.__objective_frame.pack(side=TOP)
-        self.__hyperband_frame.pack(side=TOP)
-        self.__hyperparameter_frame.pack(side=TOP)
+        self.__objective_frame.pack(side=tk.TOP)
+        self.__hyperband_frame.pack(side=tk.TOP)
+        self.__hyperparameter_frame.pack(side=tk.TOP)
 
     def destroy(self):
         self.__parameters["objective"] = self.__objective_frame.objective_var.get()
