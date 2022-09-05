@@ -40,6 +40,7 @@ class RootWindow(tk.Tk):
         # Cache original values to check for changes when beginning training
         try   : self.__old_dataset = pd.read_csv(self.OLD_DATASET_DIRECTORY, header=0)
         except: self.__old_dataset = pd.DataFrame()
+        self.__old_label = str(self.config["label"])
         self.__old_feature_lists:list[list[str]] = self.config["feature_lists"].copy()
         self.__old_tf_parameters:dict[str, any] = self.config["parameters"]["tensorflow"].copy()
 
@@ -74,10 +75,11 @@ class RootWindow(tk.Tk):
             if self.config["algorithms"]["using_tensorflow"]:
                 RMTrainerTF.parameters = self.config["parameters"]["tensorflow"]
                 
-                # If data, features, or parameters change, then clear the previous trials.
+                # If data, label, features, or parameters change, then clear the previous trials.
                 are_datasets_equal = self.__old_dataset.equals(self.dataset)
                 rmt = RMTrainerTF(
                     are_datasets_equal and
+                    self.__old_label == self.config["label"] and
                     self.__old_feature_lists == self.config["feature_lists"] and
                     self.__old_tf_parameters == self.config["parameters"]["tensorflow"]
                 )
