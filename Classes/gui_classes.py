@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import pandas as pd
 import traceback
 import tkinter as tk
@@ -11,6 +12,7 @@ from Classes.RegressionModelTrainers.regression_model_trainer_xgboost import Reg
 
 class RootWindow(tk.Tk):
     CONFIG_DIRECTORY = "config.json"
+    OLD_DATASET_DIRECTORY = "old_training_data.csv"
 
     dataset:pd.DataFrame
     config = {
@@ -36,7 +38,8 @@ class RootWindow(tk.Tk):
                 RootWindow.config = json.load(f)
 
         # Cache original values to check for changes when beginning training
-        self.__old_data_path = str(self.config["data_path"])
+        try   : self.__old_dataset = pd.read_csv(self.OLD_DATASET_DIRECTORY, header=0)
+        except: self.__old_dataset = pd.DataFrame()
         self.__old_feature_lists:list[list[str]] = self.config["feature_lists"].copy()
         self.__old_tf_parameters:dict[str, any] = self.config["parameters"]["tensorflow"].copy()
 
@@ -56,7 +59,9 @@ class RootWindow(tk.Tk):
         RootWindow.train_button = None
         super().destroy()
 
-        self.__save_config()     
+        # Save config
+        with open(self.CONFIG_DIRECTORY, 'w') as f:
+            json.dump(self.config, f, indent=4)   
         self.quit()
 
     def __load_into_training(self):
@@ -69,12 +74,17 @@ class RootWindow(tk.Tk):
             if self.config["algorithms"]["using_tensorflow"]:
                 RMTrainerTF.parameters = self.config["parameters"]["tensorflow"]
                 
-                # If data, features, or parameters change, then clear the previous trials.                            
+                # If data, features, or parameters change, then clear the previous trials.
+                are_datasets_equal = self.__old_dataset.equals(self.dataset)
                 rmt = RMTrainerTF(
-                    self.__old_data_path == self.config["data_path"] and
+                    are_datasets_equal and
                     self.__old_feature_lists == self.config["feature_lists"] and
                     self.__old_tf_parameters == self.config["parameters"]["tensorflow"]
                 )
+
+                # Save current as old dataset (if different)
+                if not are_datasets_equal:
+                    shutil.copy(self.config["data_path"], self.OLD_DATASET_DIRECTORY)
 
                 for feature_list in self.config["feature_lists"]:
                     rmt.start_training(feature_list)
@@ -86,10 +96,7 @@ class RootWindow(tk.Tk):
                     rmt.start_training(feature_list)
         except:
             traceback.print_exc()
-
-    def __save_config(self):
-        with open(self.CONFIG_DIRECTORY, 'w') as f:
-            json.dump(self.config, f, indent=4)
+            input("\nPress ENTER to exit")
 
 class AlgorithmFrame(ttk.Labelframe):
     def __init__(self, master:tk.Tk):
@@ -148,7 +155,7 @@ class DataPathFrame(ttk.Frame):
     
     def __validate_path(self, data_path) -> bool:
         try: 
-            RootWindow.dataset = pd.read_csv(data_path)
+            RootWindow.dataset = pd.read_csv(data_path, header=0)
             RootWindow.config["data_path"] = data_path
         except:
             if self.data_selection_frame != None:
@@ -242,13 +249,13 @@ class ModelFrame(ttk.Labelframe):
 
         def __remove(self): self.__model_frame.remove_feature_frame(self)
 
-    def __init__(self, master:tk.Tk, feature_names):
+    def __init__(self, master:tk.Tk, feature_names:list[str]):
         super().__init__(master, text="Select which features you want the model to train with (Select at least two features):", labelanchor='n')
 
-        ModelFrame.feature_names:list[str] = feature_names
-        
         self.__feature_frames:list[self.FeatureFrame] = []
         self.__addButton = ttk.Button(self, text="Add Model", command=self.__add_new_feature_frame)
+
+        ModelFrame.feature_names:list[str] = feature_names
         
         self.grid(column=0, row=4, padx=10, pady=20)
         self.__addButton.pack(side=tk.BOTTOM, pady=(0, 10))

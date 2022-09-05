@@ -2,6 +2,7 @@
 /Output
 /config.json
 /TensorFlow Hyperparameter Trials
+/old_training_data.csv
 
 # Caches
 /__pycache__

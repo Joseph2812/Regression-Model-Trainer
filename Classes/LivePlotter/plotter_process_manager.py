@@ -11,7 +11,7 @@ class PlotterProcessManager:
             daemon=True
         ).start()
 
-        # Wait for the process to fully startup
+        print("\nWaiting for the live plotting process to start up...")
         started = False
         while not started:
             while self.__manager_end_pipe.poll():
