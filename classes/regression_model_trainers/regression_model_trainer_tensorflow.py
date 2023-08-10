@@ -4,7 +4,7 @@ import tensorflow as tf
 import keras_tuner as kt
 from sklearn.metrics import mean_absolute_error
 from classes.live_plotter.plotter_process_manager import PlotterProcessManager
-from classes.RegressionModelTrainers.regression_model_trainer import RegressionModelTrainer as RMTrainer
+from classes.regression_model_trainers.regression_model_trainer import RegressionModelTrainer as RMTrainer
 
 class RegressionModelTrainerTensorFlow(RMTrainer):
     RESULTS_CONTENT  = "<TensorFlow>: Hyperparameters: Layers={layers:d}, Learning_Rate={rate:.0e}, Units={units}."

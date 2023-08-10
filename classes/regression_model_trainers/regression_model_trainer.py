@@ -25,9 +25,7 @@ class RegressionModelTrainer:
     MODEL_FILENAME = "model_E{epoch:02d}-VL{val_loss:f}"
 
     PLOTS_ROOT = os.path.join(MASTER_ROOT, "Plots")
-
     DATA_ROOT = os.path.join(MASTER_ROOT, "Data")
-
     RESULTS_DIRECTORY = os.path.join(MASTER_ROOT, "Results.txt")
     
     # Dictionary structure to store the split up dataset

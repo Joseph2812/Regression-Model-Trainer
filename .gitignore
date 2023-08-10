@@ -1,14 +1,10 @@
+__pycache__/
+
 # Program Generated
 /Output
 /config.json
 /TensorFlow Hyperparameter Trials
 /old_training_data.csv
-
-# Caches
-/__pycache__
-/Classes/__pycache__
-/Classes/LivePlotter/__pycache__
-/Classes/RegressionModelTrainers/__pycache__
 
 # External
 /TrainingData.csv
