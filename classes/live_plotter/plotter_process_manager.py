@@ -1,5 +1,5 @@
 import multiprocessing as mp
-from Classes.LivePlotter.plotter_process import PlotterProcess
+from classes.live_plotter.plotter_process import PlotterProcess
 
 class PlotterProcessManager:
     def __init__(self, title:str, xlabel:str, ylabel:str):

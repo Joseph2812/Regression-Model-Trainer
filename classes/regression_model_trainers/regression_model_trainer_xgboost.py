@@ -1,6 +1,6 @@
 import xgboost as xgb
 from sklearn.metrics import mean_absolute_error
-from Classes.RegressionModelTrainers.regression_model_trainer import RegressionModelTrainer as RMTrainer
+from classes.regression_model_trainers.regression_model_trainer import RegressionModelTrainer as RMTrainer
 
 class RegressionModelTrainerXGBoost(RMTrainer):
     RESULTS_CONTENT = "<XGBoost>: Best_Score={score:f}, Best_NTree_Limit={ntree_limit:d}, ETA={eta:f}."

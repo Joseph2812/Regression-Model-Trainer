@@ -6,9 +6,9 @@ import traceback
 import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog as fd
-from Classes.RegressionModelTrainers.regression_model_trainer import RegressionModelTrainer as RMTrainer
-from Classes.RegressionModelTrainers.regression_model_trainer_tensorflow import RegressionModelTrainerTensorFlow as RMTrainerTF
-from Classes.RegressionModelTrainers.regression_model_trainer_xgboost import RegressionModelTrainerXGBoost as RMTrainerXGB
+from classes.regression_model_trainers.regression_model_trainer import RegressionModelTrainer as RMTrainer
+from classes.regression_model_trainers.regression_model_trainer_tensorflow import RegressionModelTrainerTensorFlow as RMTrainerTF
+from classes.regression_model_trainers.regression_model_trainer_xgboost import RegressionModelTrainerXGBoost as RMTrainerXGB
 
 class RootWindow(tk.Tk):
     CONFIG_DIRECTORY = "config.json"
