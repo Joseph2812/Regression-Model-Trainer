@@ -8,25 +8,26 @@ import pandas as pd
 
 class RegressionModelTrainer:
     """
-    This is the abstract base class, instantiate a derived class to choose a specific machine learning library.\n
-    Trains on a given dataset, and tries to find the optimal model by minimising validation loss.\n
+    This is the abstract base class, instantiate a derived class to choose a specific machine learning library.
+    Trains on a given dataset, and tries to find the optimal model by minimising validation loss.
+
     Use start_training() to find the best model with your desired features.
 
     Data Split = 80:10:10 (Training:Validation:Testing).
     """
 
-    RESULTS_CONTENT_START = "[Training Session {train_session:d}]: Epoch={epoch:d}, Loss={loss:f}, Validation_Loss={val_loss:f}, Test_Loss(MAE)={test_loss:f}. "
+    RESULTS_CONTENT_START = "[Training Session {train_session:d}]: Epoch={epoch:d}, Loss={loss:f}, ValidationLoss={val_loss:f}, TestLoss(RMSE)={test_loss:f}, EvaluationMetric={eval_metric:s}."
 
     MASTER_ROOT = "Output"
     
     # Current directory: MASTER_ROOT\MODELS_ROOT\__trainer_name\SESSION_NAME\MODEL_FILENAME
     MODELS_ROOT    = os.path.join(MASTER_ROOT, "BestModels")
-    SESSION_NAME   = "TrainingSession_{count:d}"
-    MODEL_FILENAME = "model_E{epoch:02d}-VL{val_loss:f}"
+    SESSION_NAME   = "TrainingSession{count:d}"
+    MODEL_FILENAME = "Model_E{epoch:02d}-VL{val_loss:f}"
 
     PLOTS_ROOT = os.path.join(MASTER_ROOT, "Plots")
     DATA_ROOT = os.path.join(MASTER_ROOT, "Data")
-    RESULTS_DIRECTORY = os.path.join(MASTER_ROOT, "Results.txt")
+    RESULTS_PATH = os.path.join(MASTER_ROOT, "Results.txt")
     
     # Dictionary structure to store the split up dataset
     _data:dict[str, dict[str, pd.DataFrame | pd.Series]] = None
@@ -36,7 +37,7 @@ class RegressionModelTrainer:
         """Loads a new dataset at the data path.
 
         Args:
-            data_path (str): Path to the dataset in .csv format, relative to this program's location.\n
+            data_path (str): Path to the dataset in .csv format, relative to this program's location.
             label_name (str): Name of the label to train towards, should match the column name in the dataset.
         """
 
@@ -48,7 +49,7 @@ class RegressionModelTrainer:
         """Loads in a preloaded dataset.
 
         Args:
-            dataset (pandas.DataFrame): Dataset being used for training, validation, and testing data.\n
+            dataset (pandas.DataFrame): Dataset being used for training, validation, and testing data.
             label_name (str): Name of the label to train towards, should match the column name in the dataset.
         """
 
@@ -57,14 +58,14 @@ class RegressionModelTrainer:
         # Keep all the labels in one variable (for response plot)
         RegressionModelTrainer._all_labels = dataset[label_name]
 
-        # Split data into training, validation, and test segments
+        # Split data into training, validation, and test segments #
         RegressionModelTrainer._data["train"]["features"] = dataset.sample(frac=0.8, random_state=0)
         remainder = dataset.drop(RegressionModelTrainer._data["train"]["features"].index) # 20% Remainder
 
         RegressionModelTrainer._data["valid"]["features"] = remainder.sample(frac=0.5, random_state=0)
         RegressionModelTrainer._data["test"]["features"] = remainder.drop(RegressionModelTrainer._data["valid"]["features"].index)
 
-        # Split the labels into their own entry
+        # Split the labels into their own entry #
         RegressionModelTrainer._data["train"]["labels"] = RegressionModelTrainer._data["train"]["features"].pop(label_name)
         RegressionModelTrainer._data["valid"]["labels"] = RegressionModelTrainer._data["valid"]["features"].pop(label_name)
         RegressionModelTrainer._data["test"]["labels"] = RegressionModelTrainer._data["test"]["features"].pop(label_name)
@@ -75,13 +76,14 @@ class RegressionModelTrainer:
             shutil.rmtree(RegressionModelTrainer.MASTER_ROOT) # Clear previous stuff
         os.mkdir(RegressionModelTrainer.MASTER_ROOT)
 
-        # ---Setting up directories---
+        # Setting up directories #
         os.mkdir(RegressionModelTrainer.MODELS_ROOT)
         os.mkdir(RegressionModelTrainer.DATA_ROOT)
         os.mkdir(RegressionModelTrainer.PLOTS_ROOT)           
+        #
 
-        with open(RegressionModelTrainer.RESULTS_DIRECTORY, 'w') as f:
-            f.write("=====Best Models=====") # Creates txt file
+        with open(RegressionModelTrainer.RESULTS_PATH, 'w') as f:
+            f.write("=== Best Models ===") # Creates txt file
 
         RegressionModelTrainer._data = {
             "train": {"features": [], "labels": []},
@@ -91,16 +93,16 @@ class RegressionModelTrainer:
 
     def __new__(cls, *args, **kwargs):
         if cls is RegressionModelTrainer:
-            raise TypeError("Base class may not be instantiated")
+            raise TypeError("Base class may not be instantiated.")
         return super().__new__(cls)
 
     def __init__(self):
-        if (self._data == None): raise RuntimeError("A shared dataset must be assigned first. Use RegressionModelTrainer.set_dataset().")
+        if self._data == None: raise RuntimeError("A shared dataset must be assigned first. Use RegressionModelTrainer.set_dataset() / set_dataset_preloaded().")
 
         self._training_count:int = 0 # Tracks how many times start_training() is run, so it can name the folder accordingly
         self._model_dir:str # Where to save models
 
-        # For feature selection
+        # For feature selection #
         self._selected_train_features:pd.DataFrame
         self._selected_valid_features:pd.DataFrame
         self._selected_test_features:pd.DataFrame
@@ -108,7 +110,7 @@ class RegressionModelTrainer:
         self._all_selected_features:pd.DataFrame
         self._all_labels:pd.DataFrame
 
-        # Assigned to by derived classes through _set_trainer_name()
+        # Assigned to by derived classes through _set_trainer_name() #
         self.__trainer_name:str
         self.__data_dir:str
         self.__plots_dir:str
@@ -120,7 +122,7 @@ class RegressionModelTrainer:
             selected_columns (str): Columns that you want to include in training, leave empty to use all of the columns. Default = [].
         """
 
-        print("\n=====Training Session {:d}=====".format(self._training_count))
+        print("\n=== Training Session {:d} ===".format(self._training_count))
                 
         # Update directory path for this training session
         session_dir = os.path.join(self.MODELS_ROOT, self.__trainer_name, self.SESSION_NAME.format(count=self._training_count))
@@ -128,7 +130,7 @@ class RegressionModelTrainer:
 
         self._model_dir = os.path.join(session_dir, self.MODEL_FILENAME)
         
-        # Select requested feature columns
+        # Select requested feature columns #
         if selected_columns == []:
             self._selected_train_features = self._data["train"]["features"]
             self._selected_valid_features = self._data["valid"]["features"]
@@ -141,55 +143,109 @@ class RegressionModelTrainer:
         self._all_selected_features = pd.concat([self._selected_train_features, self._selected_valid_features, self._selected_test_features])
         self._all_selected_features.sort_index()
 
-        # Show selected data (preview to see if it's setup right)
-        print("\n---Selected Training Data---")
+        # Show selected data (preview to see if it's setup right) #
+        print("\n--- Selected Training Data ---")
         print(self._selected_train_features.head(), end="\n\n")
         print(self._data["train"]["labels"].head())
 
-        print("\n---Selected Validation Data---")
+        print("\n--- Selected Validation Data ---")
         print(self._selected_valid_features.head(), end="\n\n")
         print(self._data["valid"]["labels"].head(), end="\n\n")
 
-        print("\n---Selected Testing Data---")
+        print("\n--- Selected Testing Data ---")
         print(self._selected_test_features.head(), end="\n\n")
         print(self._data["test"]["labels"].head(), end="\n\n")
+        #
 
         self.__analyse_best_model()
-
         self._training_count += 1
 
     def _set_trainer_name(self, trainer_name:str):
-        """A derived class should call this in __init__() to set the trainer's name"""
-        self.__trainer_name = trainer_name
+        """A derived class should call this in __init__() to set the trainer's name."""
 
+        self.__trainer_name = trainer_name
         os.mkdir(os.path.join(self.MODELS_ROOT, trainer_name))
 
         self.__data_dir = os.path.join(self.DATA_ROOT, trainer_name)
         os.mkdir(self.__data_dir)
 
-        # Make trainer's plot directory
+        # Make trainer's plot directory #
         self.__plots_dir = os.path.join(self.PLOTS_ROOT, trainer_name)
         os.mkdir(self.__plots_dir)
 
-    def _train_and_save_best_model(self) -> tuple[str, list[float], list[float], list[float]]:
-        """Derived class must override this with it's own method for training & saving models.\n       
+    def _train_and_save_best_model(self) -> tuple[list[float], list[float], float, list[float], int, float, str, str]:
+        """Derived class must override this with it's own method for training & saving models.     
         At the end it must return characteristics for printing and plotting (analysis).
 
-        Returns: (eval_metric:str, losses:list[float], val_losses:list[float], predictions:list[float])
+        Returns: (
+            losses: list[float],
+            val_losses: list[float],
+            test_loss: float,
+            predictions: list[float],
+            best_epoch: int,
+            best_val_loss: float,
+            eval_metric: str,
+            unique_results: str
+        )
         """
+
         raise NotImplementedError("Method: ""_train_and_save_best_model"" not implemented")
 
     def _get_best_epoch_and_val_loss(self, val_loss:list[float]) -> tuple[int, float]:
         best_epoch = val_loss.index(min(val_loss)) + 1
-        lowest_val_loss = val_loss[best_epoch - 1]
+        best_val_loss = val_loss[best_epoch - 1]
 
-        return (best_epoch, lowest_val_loss)
+        return (best_epoch, best_val_loss)
 
-    def _save_results(self, epoch:int, loss:float, val_loss:float, test_loss:float, unique_results:str):
-        with open(self.RESULTS_DIRECTORY, 'a') as f:
+    def __analyse_best_model(self):
+        (
+            losses,
+            val_losses,
+            test_loss,
+            predictions,
+            best_epoch,
+            best_val_loss,
+            eval_metric,
+            unique_results
+        ) = self._train_and_save_best_model()
+
+        print("\n=== Best Model ===")
+
+        # Print out which has the lowest validation loss at the best epoch #
+        print("\nBest epoch: {:d}".format(best_epoch))
+        print("Best validation loss: {:f}".format(best_val_loss))
+
+        # Save loss & val_loss data #
+        with open(os.path.join(self.__data_dir, self.SESSION_NAME.format(count=self._training_count) + "_Loss.csv"), 'w') as f:
+            f.write("Epoch,loss,val_loss\n")
+            for i in range(len(losses)):
+                f.write(f"{i+1},{losses[i]},{val_losses[i]}")
+                if i != len(losses) - 1: f.write('\n')
+
+        # Save response data #
+        with open(os.path.join(self.__data_dir, self.SESSION_NAME.format(count=self._training_count) + "_Response.csv"), 'w') as f:
+            f.write("Actual,Predicted\n")
+            for i in range(len(self._all_labels)):
+                f.write(f"{self._all_labels[i]},{float(predictions[i])}") # float() removes square brackets
+                if i != len(self._all_labels) - 1: f.write('\n')
+        #
+
+        self.__save_results(
+            eval_metric,
+            best_epoch,
+            losses[best_epoch - 1],
+            best_val_loss,
+            test_loss,
+            unique_results
+        )
+        self.__plot_model(eval_metric, losses, val_losses, predictions)
+
+    def __save_results(self, eval_metric:str, epoch:int, loss:float, val_loss:float, test_loss:float, unique_results:str):
+        with open(self.RESULTS_PATH, 'a') as f:
             f.write('\n' +
                 self.RESULTS_CONTENT_START.format(
                     train_session=self._training_count,
+                    eval_metric=eval_metric,
                     epoch=epoch,
                     loss=loss,
                     val_loss=val_loss,
@@ -197,39 +253,13 @@ class RegressionModelTrainer:
                 ) + unique_results
             )
 
-    def __analyse_best_model(self):
-        (eval_metric, losses, val_losses, predictions) = self._train_and_save_best_model()
-
-        print("\n=====Best Model=====")
-
-        # Print out which has the lowest validation loss at the best epoch       
-        (best_epoch, lowest_val_loss) = self._get_best_epoch_and_val_loss(val_losses)
-        print("\nBest epoch: {:d}".format(best_epoch))
-        print("Lowest validation loss: {:f}".format(lowest_val_loss))
-
-        # Save loss & val_loss data
-        with open(os.path.join(self.__data_dir, self.SESSION_NAME.format(count=self._training_count) + "_Loss.csv"), 'w') as f:
-            f.write("Epoch,loss,val_loss\n")
-            for i in range(len(losses)):
-                f.write(f"{i+1},{losses[i]},{val_losses[i]}")
-                if i != len(losses) - 1: f.write('\n')
-
-        # Save response data
-        with open(os.path.join(self.__data_dir, self.SESSION_NAME.format(count=self._training_count) + "_Response.csv"), 'w') as f:
-            f.write("Actual,Predicted\n")
-            for i in range(len(self._all_labels)):
-                f.write(f"{self._all_labels[i]},{float(predictions[i])}") # float() removes square brackets
-                if i != len(self._all_labels) - 1: f.write('\n')
-
-        self.__plot_model(eval_metric, losses, val_losses, predictions)
-
     def __plot_model(self, eval_metric:str, losses:list[float], val_losses:list[float], predictions:list[float]):
         session_name = self.SESSION_NAME.format(count=self._training_count)
         
         general_title = f"[{self.__trainer_name}] " + session_name
         general_dir = os.path.join(self.__plots_dir, session_name + "{0}.png")
 
-        # Plots loss and val_loss
+        # Plots loss and val_loss #
         fig = plt.figure()
         plt.plot(list(range(1, len(losses) + 1)), losses, label="loss") # Epochs start at 1
         plt.plot(list(range(1, len(val_losses) + 1)), val_losses, label="val_loss")
@@ -242,7 +272,7 @@ class RegressionModelTrainer:
         plt.grid(True)
         fig.savefig(general_dir.format("_Loss"))
 
-        # Plots response
+        # Plots response #
         fig = plt.figure()
         plt.plot(predictions, label="Predictions")
         plt.plot(self._all_labels, label="Actual")

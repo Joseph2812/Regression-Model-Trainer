@@ -2,12 +2,12 @@ import os
 import shutil
 import tensorflow as tf
 import keras_tuner as kt
-from sklearn.metrics import mean_absolute_error
+from sklearn.metrics import mean_squared_error
 from classes.live_plotter.plotter_process_manager import PlotterProcessManager
 from classes.regression_model_trainers.regression_model_trainer import RegressionModelTrainer as RMTrainer
 
 class RegressionModelTrainerTensorFlow(RMTrainer):
-    RESULTS_CONTENT  = "<TensorFlow>: Hyperparameters: Layers={layers:d}, Learning_Rate={rate:.0e}, Units={units}."
+    RESULTS_CONTENT  = "<TensorFlow>: Hyperparameters: Layers={layers:d}, LearningRate={rate:.0e}, Units={units}."
     TRIALS_DIRECTORY = "TensorFlow Hyperparameter Trials"
 
     ACTIVATION_FUNCTION = "relu"
@@ -15,14 +15,14 @@ class RegressionModelTrainerTensorFlow(RMTrainer):
     parameters:dict[str, any] = {
         "objective": "mean_squared_error", # Objective == Evaluation metric
 
-        # Hyperband parameters
+        # Hyperband parameters #
         # 1 iteration ~ max_epochs * (math.log(max_epochs, factor) ** 2) cumulative epochs
         "max_epochs"          : 100,
         "factor"              : 3,
         "hyperband_iterations": 1,
         "patience"            : 5,
 
-        # Hyperparameter tuning
+        # Hyperparameter tuning #
         "min_hidden_layers": 0,
         "max_hidden_layers": 10,
 
@@ -48,7 +48,7 @@ class RegressionModelTrainerTensorFlow(RMTrainer):
             if os.path.exists(self.TRIALS_DIRECTORY):
                 shutil.rmtree(self.TRIALS_DIRECTORY) # Clear previous trials
 
-    def _train_and_save_best_model(self) -> tuple[str, list[float], list[float], list[float]]:
+    def _train_and_save_best_model(self) -> tuple[list[float], list[float], float, list[float], int, float, str, str]:
         tuner = kt.Hyperband(
             self.__compile_model,
             objective="val_loss",
@@ -61,7 +61,7 @@ class RegressionModelTrainerTensorFlow(RMTrainer):
 
         plot_manager = PlotterProcessManager("Validation Loss at Current Hyperparameters", "Epoch", self.parameters["objective"])
 
-        # Search through various hyperparameters to see which model gives the lowest validation loss
+        # Search various hyperparameters to find which model gives the lowest validation loss #
         tuner.search(
             self._selected_train_features,
             self._data["train"]["labels"],
@@ -78,40 +78,43 @@ class RegressionModelTrainerTensorFlow(RMTrainer):
             ]
         ) 
        
-        # Build the best model (with best hyperparameters) and train it for MAX_EPOCHS
+        # Build the best model (with best hyperparameters) and train it for MAX_EPOCHS #
         best_hps = tuner.get_best_hyperparameters()[0]
         model = tuner.hypermodel.build(best_hps)
 
         print("\n[TensorFlow] Training the model with the best hyperparameters...")
         history = self.__train_model(model, plot_manager)
         plot_manager.end_process()
+        #
 
         val_losses = history.history["val_loss"]
-        (best_epoch, lowest_val_loss) = self._get_best_epoch_and_val_loss(val_losses)
+        (best_epoch, best_val_loss) = self._get_best_epoch_and_val_loss(val_losses)
 
-        # Get predictions of the new model
-        model = tf.keras.models.load_model(self._model_dir.format(epoch=best_epoch, val_loss=lowest_val_loss))
+        # Get predictions of the new model #
+        model = tf.keras.models.load_model(self._model_dir.format(epoch=best_epoch, val_loss=best_val_loss))
         predictions = model.predict(self._all_selected_features)
         test_predictions = model.predict(self._selected_test_features)
         
-        # Saving best model data
+        # Get units into a list #
         units_list = []
         for i in range(best_hps["layers"]):
             units_list.append(best_hps["units_{:d}".format(i)])
+        #
 
-        self._save_results(
-            epoch=best_epoch,
-            loss=min(history.history["loss"]),
-            val_loss=lowest_val_loss,
-            test_loss=mean_absolute_error(self._data["test"]["labels"], test_predictions),
-            unique_results=self.RESULTS_CONTENT.format(
+        return (
+            history.history["loss"],
+            val_losses,
+            mean_squared_error(self._data["test"]["labels"], test_predictions, squared=False),
+            predictions,
+            best_epoch,
+            best_val_loss,
+            self.parameters["objective"],
+            self.RESULTS_CONTENT.format(
                 layers=best_hps["layers"],
                 rate=best_hps["learning_rate"],
                 units=units_list
-            )       
+            )
         )
-
-        return (self.parameters["objective"], history.history["loss"], val_losses, predictions)
 
     def __train_model(self, model, plot_manager) -> any:
         history = model.fit(
@@ -130,10 +133,10 @@ class RegressionModelTrainerTensorFlow(RMTrainer):
                     save_freq="epoch"
                 ),
                 tf.keras.callbacks.LambdaCallback(
-                    on_train_begin=lambda _: plot_manager.plot(None, None)
+                    on_train_begin=lambda _:plot_manager.plot(None, None)
                 ),
                 tf.keras.callbacks.LambdaCallback(
-                    on_epoch_end=lambda epoch, logs: plot_manager.plot(epoch + 1, logs["val_loss"])
+                    on_epoch_end=lambda epoch, logs:plot_manager.plot(epoch + 1, logs["val_loss"])
                 )
             ]
         )
@@ -141,11 +144,11 @@ class RegressionModelTrainerTensorFlow(RMTrainer):
         return history
 
     def __compile_model(self, hp) -> any:
-        # Normalise the features
+        # Normalise the features #
         normaliser = tf.keras.layers.Normalization()
         normaliser.adapt(self._selected_train_features.to_numpy())
         
-        # ---Create model---
+        # Create model #
         model = tf.keras.Sequential([normaliser])
 
         # 0 hidden layers will make the model linear
