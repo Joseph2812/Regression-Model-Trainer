@@ -1,5 +1,6 @@
 import warnings
-warnings.simplefilter(action='ignore', category=FutureWarning)
+warnings.simplefilter(action="ignore", category=FutureWarning)
+warnings.simplefilter(action="ignore", category=UserWarning)
 
 import os
 import shutil
@@ -16,7 +17,7 @@ class RegressionModelTrainer:
     Data Split = 80:10:10 (Training:Validation:Testing).
     """
 
-    RESULTS_CONTENT_START = "[Training Session {train_session:d}]: Epoch={epoch:d}, Loss={loss:f}, ValidationLoss={val_loss:f}, TestLoss(RMSE)={test_loss:f}, EvaluationMetric={eval_metric:s}."
+    RESULTS_CONTENT_START = "[Training Session {train_session:d}]: Epoch={epoch:d}, Loss={loss:f}, ValidationLoss={val_loss:f}, TestLoss(RMSE)={test_loss:f}, EvaluationMetric={eval_metric:s}. "
 
     MASTER_ROOT = "Output"
     

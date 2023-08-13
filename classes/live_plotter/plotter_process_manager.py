@@ -12,12 +12,15 @@ class PlotterProcessManager:
         ).start()
 
         print("\nWaiting for the live plotting process to start up...")
+        
         started = False
         while not started:
             while self.__manager_end_pipe.poll():
                 started = self.__manager_end_pipe.recv()
 
     def plot(self, x, y):
+        """Sends new point to plot. Set either x or y to None to clear the plot."""
+
         if self.__process_end_pipe.closed: return
         
         self.__manager_end_pipe.send((False, x, y)) # (finished, x, y)

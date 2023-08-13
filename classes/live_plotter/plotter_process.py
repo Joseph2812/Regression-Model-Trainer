@@ -11,9 +11,9 @@ class PlotterProcess:
 
         self.__x:list[float] = []
         self.__y:list[float] = []
-        self.__figure, self.__axes = plt.subplots()      
+        self.__figure, self.__axes = plt.subplots()
 
-        timer = self.__figure.canvas.new_timer(interval=1000)
+        timer = self.__figure.canvas.new_timer(interval=500)
         timer.add_callback(self.__callback)
         timer.start()
 
@@ -46,7 +46,7 @@ class PlotterProcess:
         self.__axes.set_title(self.__title)
         self.__axes.set_xlabel(self.__xlabel)
         self.__axes.set_ylabel(self.__ylabel)
-        self.__axes.plot(self.__x, self.__y, marker=".")
+        self.__axes.plot(self.__x, self.__y, marker='.')
 
     def __terminate(self):
         plt.close(self.__figure)

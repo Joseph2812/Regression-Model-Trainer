@@ -1,6 +1,7 @@
 import xgboost as xgb
 from sklearn.metrics import mean_squared_error
 from classes.regression_model_trainers.regression_model_trainer import RegressionModelTrainer as RMTrainer
+from classes.live_plotter.plotter_process_manager import PlotterProcessManager
 
 class RegressionModelTrainerXGBoost(RMTrainer):
     RESULTS_CONTENT = "<XGBoost>: BestScore={score:f}, BestNTreeLimit={ntree_limit:d}, ETA={eta:f}."
@@ -47,19 +48,40 @@ class RegressionModelTrainerXGBoost(RMTrainer):
         )
 
     def __train_model(self) -> xgb.XGBModel:
-        model = xgb.XGBRegressor().set_params(
+        plot_manager = PlotterProcessManager("Validation Loss at Current Hyperparameters", "Epoch", self.EVALUATION_METRIC)
+
+        model = xgb.XGBRegressor(
             objective=self.OBJECTIVE,
             early_stopping_rounds=self.EARLY_STOPPING_ROUNDS,
             eval_metric=self.EVALUATION_METRIC,
             booster="gbtree", # gbtree, gblinear, or dart
-            verbosity=1
+            verbosity=1,
+            callbacks=[PlotCallback(plot_manager, self.EVALUATION_METRIC)]
         )
         model.fit(
             self._selected_train_features,
             self._data["train"]["labels"],
             verbose=True,
-            eval_set=[(self._selected_train_features, self._data["train"]["labels"]), (self._selected_valid_features, self._data["valid"]["labels"])]
+            eval_set=[(self._selected_train_features, self._data["train"]["labels"]), (self._selected_valid_features, self._data["valid"]["labels"])],
         )
         # Early stopping will use the last eval_set & eval_metric in the list
 
+        plot_manager.end_process()
         return model
+
+class PlotCallback(xgb.callback.TrainingCallback):
+    def __init__(self, plot_manager:PlotterProcessManager, eval_metric:str):
+        super().__init__()
+
+        self.__plot_manager = plot_manager
+        self.__eval_metric = eval_metric
+    
+    def before_training(self, model) -> any:
+        self.__plot_manager.plot(None, None)
+        return model
+
+    def after_iteration(self, model, epoch, evals_log) -> bool:
+        val_losses = evals_log["validation_1"][self.__eval_metric]
+        self.__plot_manager.plot(epoch, val_losses[len(val_losses) - 1])
+        
+        return False
