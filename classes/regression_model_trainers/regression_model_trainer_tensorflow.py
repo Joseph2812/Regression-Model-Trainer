@@ -7,8 +7,8 @@ from classes.live_plotter.plotter_process_manager import PlotterProcessManager
 from classes.regression_model_trainers.regression_model_trainer import RegressionModelTrainer as RMTrainer
 
 class RegressionModelTrainerTensorFlow(RMTrainer):
-    RESULTS_CONTENT  = "<TensorFlow>: Hyperparameters: Layers={layers:d}, LearningRate={rate:.0e}, Units={units}."
-    TRIALS_DIRECTORY = "TensorFlow Hyperparameter Trials"
+    RESULTS_CONTENT  = "<TensorFlow>: Layers={layers:d}, LearningRate={rate:.0e}, Units={units}."
+    TRIALS_DIRECTORY = "tensorflow_hyperparameter_trials"
 
     ACTIVATION_FUNCTION = "relu"
 

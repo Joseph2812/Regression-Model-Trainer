@@ -13,7 +13,7 @@ class PlotterProcess:
         self.__y:list[float] = []
         self.__figure, self.__axes = plt.subplots()
 
-        timer = self.__figure.canvas.new_timer(interval=500)
+        timer = self.__figure.canvas.new_timer(interval=1000)
         timer.add_callback(self.__callback)
         timer.start()
 

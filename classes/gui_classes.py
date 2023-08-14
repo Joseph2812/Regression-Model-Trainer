@@ -252,7 +252,7 @@ class ModelFrame(ttk.Labelframe):
         def __remove(self): self.__model_frame.remove_feature_frame(self)
 
     def __init__(self, master:tk.Tk, feature_names:list[str]):
-        super().__init__(master, text="Select which features you want the model to train with (Select at least two features):", labelanchor='n')
+        super().__init__(master, text="Select which features you want the model to train with (Select at least two features for TensorFlow):", labelanchor='n')
 
         self.__feature_frames:list[self.FeatureFrame] = []
         self.__addButton = ttk.Button(self, text="Add Model", command=self.__add_new_feature_frame)

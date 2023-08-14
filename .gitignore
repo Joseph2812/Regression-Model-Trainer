@@ -1,11 +1,8 @@
 __pycache__/
 
-# Program Generated
+# Program generated #
 /Output
 /config.json
-/TensorFlow Hyperparameter Trials
+/tensorFlow_hyperparameter_trials
+/xgboost_hyperparameter_trials.pkl
 /old_training_data.csv
-
-# External
-/TrainingData.csv
-/cuda
