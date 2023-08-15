@@ -98,9 +98,10 @@ class RegressionModelTrainer:
         return super().__new__(cls)
 
     def __init__(self):
-        if self._data == None: raise RuntimeError("A shared dataset must be assigned first. Use RegressionModelTrainer.set_dataset() / set_dataset_preloaded().")
+        if self._data == None:
+            raise RuntimeError("A shared dataset must be assigned first. Use RegressionModelTrainer.set_dataset() / set_dataset_preloaded().")
 
-        self._training_count:int = 0 # Tracks how many times start_training() is run, so it can name the folder accordingly
+        self._session_name:str
         self._model_dir:str # Where to save models
 
         # For feature selection #
@@ -110,6 +111,9 @@ class RegressionModelTrainer:
 
         self._all_selected_features:pd.DataFrame
         self._all_labels:pd.DataFrame
+        #
+
+        self.__training_count:int = 0 # Tracks how many times start_training() is run, so it can name the folder accordingly
 
         # Assigned to by derived classes through _set_trainer_name() #
         self.__trainer_name:str
@@ -123,10 +127,11 @@ class RegressionModelTrainer:
             selected_columns (str): Columns that you want to include in training, leave empty to use all of the columns. Default = [].
         """
 
-        print("\n=== Training Session {:d} ===".format(self._training_count))
+        print("\n=== Training Session {:d} ===".format(self.__training_count))
                 
         # Update directory path for this training session
-        session_dir = os.path.join(self.MODELS_ROOT, self.__trainer_name, self.SESSION_NAME.format(count=self._training_count))
+        self._session_name = self.SESSION_NAME.format(count=self.__training_count)
+        session_dir = os.path.join(self.MODELS_ROOT, self.__trainer_name, self._session_name)
         os.mkdir(session_dir)
 
         self._model_dir = os.path.join(session_dir, self.MODEL_FILENAME)
@@ -159,7 +164,7 @@ class RegressionModelTrainer:
         #
 
         self.__analyse_best_model()
-        self._training_count += 1
+        self.__training_count += 1
 
     def _set_trainer_name(self, trainer_name:str):
         """A derived class should call this in __init__() to set the trainer's name."""
@@ -217,14 +222,14 @@ class RegressionModelTrainer:
         print("Best validation loss: {:f}".format(best_val_loss))
 
         # Save loss & val_loss data #
-        with open(os.path.join(self.__data_dir, self.SESSION_NAME.format(count=self._training_count) + "_Loss.csv"), 'w') as f:
+        with open(os.path.join(self.__data_dir, self._session_name + "_Loss.csv"), 'w') as f:
             f.write("Epoch,loss,val_loss\n")
             for i in range(len(losses)):
                 f.write(f"{i+1},{losses[i]},{val_losses[i]}")
                 if i != len(losses) - 1: f.write('\n')
 
         # Save response data #
-        with open(os.path.join(self.__data_dir, self.SESSION_NAME.format(count=self._training_count) + "_Response.csv"), 'w') as f:
+        with open(os.path.join(self.__data_dir, self._session_name + "_Response.csv"), 'w') as f:
             f.write("Actual,Predicted\n")
             for i in range(len(self._all_labels)):
                 f.write(f"{self._all_labels[i]},{float(predictions[i])}") # float() removes square brackets
@@ -245,7 +250,7 @@ class RegressionModelTrainer:
         with open(self.RESULTS_PATH, 'a') as f:
             f.write('\n' +
                 self.RESULTS_CONTENT_START.format(
-                    train_session=self._training_count,
+                    train_session=self.__training_count,
                     eval_metric=eval_metric,
                     epoch=epoch,
                     loss=loss,
@@ -254,11 +259,9 @@ class RegressionModelTrainer:
                 ) + unique_results
             )
 
-    def __plot_model(self, eval_metric:str, losses:list[float], val_losses:list[float], predictions:list[float]):
-        session_name = self.SESSION_NAME.format(count=self._training_count)
-        
-        general_title = f"[{self.__trainer_name}] " + session_name
-        general_dir = os.path.join(self.__plots_dir, session_name + "{0}.png")
+    def __plot_model(self, eval_metric:str, losses:list[float], val_losses:list[float], predictions:list[float]):        
+        general_title = f"[{self.__trainer_name}] " + self._session_name
+        general_dir = os.path.join(self.__plots_dir, self._session_name + "{0}.png")
 
         # Plots loss and val_loss #
         fig = plt.figure()

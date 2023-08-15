@@ -34,10 +34,10 @@ class RegressionModelTrainerTensorFlow(RMTrainer):
     }
 
     def __init__(self, keep_previous_trials:bool=True):
-        """Initialises the tensorflow trainer, and choose whether to resume from previous trials.
+        """Initialises the TensorFlow trainer, and choose whether to resume from previous trials.
 
         Args:
-            keep_previous_trials (bool): Whether you would like the tuner to reuse old trials, good for resuming search on the same dataset & tuning parameters. Default = True.
+            keep_previous_trials (bool): Whether you would like the tuner to reuse old trials, for resuming search on the same dataset & tuning parameters. Default = True.
         """
         
         super().__init__()
@@ -56,7 +56,7 @@ class RegressionModelTrainerTensorFlow(RMTrainer):
             factor=self.parameters["factor"],
             hyperband_iterations=self.parameters["hyperband_iterations"],
             directory=self.TRIALS_DIRECTORY,
-            project_name=self.SESSION_NAME.format(count=self._training_count)
+            project_name=self._session_name
         )
 
         plot_manager = PlotterProcessManager("Validation Loss at Current Hyperparameters", "Epoch", self.parameters["objective"])

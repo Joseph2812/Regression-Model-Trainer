@@ -3,6 +3,6 @@ __pycache__/
 # Program generated #
 /Output
 /config.json
-/tensorFlow_hyperparameter_trials
-/xgboost_hyperparameter_trials.pkl
+/tensorflow_hyperparameter_trials
+/xgboost_hyperparameter_trials
 /old_training_data.csv

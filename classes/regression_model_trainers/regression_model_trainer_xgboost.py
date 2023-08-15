@@ -6,10 +6,11 @@ import hyperopt
 from hyperopt import hp
 import os
 import pickle
+import shutil
 
 class RegressionModelTrainerXGBoost(RMTrainer):
     RESULTS_CONTENT = "<XGBoost>: ETA={eta:f}, MaxDepth={max_depth:d}, Gamma={gamma:f}, RegAlpha={reg_alpha:d}, RegLambda={reg_lambda:f}, ColsampleBytree={colsample_bytree:f}, MinChildWeight={min_child_weight:d}."
-    TRIALS_PATH = "xgboost_hyperparameter_trials.pkl"
+    TRIALS_DIRECTORY = "xgboost_hyperparameter_trials"
 
     parameters:dict[str, any] = {
         "objective"  : "reg:squarederror",
@@ -22,13 +23,24 @@ class RegressionModelTrainerXGBoost(RMTrainer):
         "seed"                 : 0
     }
 
-    def __init__(self):
+    def __init__(self, keep_previous_trials:bool=True):
+        """Initialises the XGBoost trainer, and choose whether to resume from previous trials.
+
+        Args:
+            keep_previous_trials (bool): Whether you would like the tuner to reuse old trials, for resuming search on the same dataset & tuning parameters. Default = True.
+        """
+
         super().__init__()
 
         self.__plot_manager:PlotterProcessManager
 
         self._set_trainer_name("XGBoost")
         xgb.set_config(verbosity=2)
+
+        if not keep_previous_trials:
+            if os.path.exists(self.TRIALS_DIRECTORY):
+                shutil.rmtree(self.TRIALS_DIRECTORY) # Clear previous trials
+            os.mkdir(self.TRIALS_DIRECTORY)
         
     def _train_and_save_best_model(self) -> tuple[list[float], list[float], float, list[float], int, float, str, str]:
         print("[XGBoost] Finding the best hyperparameters...")
@@ -45,8 +57,10 @@ class RegressionModelTrainerXGBoost(RMTrainer):
             "min_child_weight": hp.uniformint("min_child_weight", 0, 10),
         }
 
-        if os.path.exists(self.TRIALS_PATH):
-            trials = pickle.load(open(self.TRIALS_PATH, "rb"))
+        trials_path = os.path.join(self.TRIALS_DIRECTORY, self._session_name + ".pkl")
+        if os.path.exists(trials_path):
+            with open(trials_path, "rb") as f:
+                trials = pickle.load(f)
         else:
             trials = hyperopt.Trials()
 
@@ -56,7 +70,7 @@ class RegressionModelTrainerXGBoost(RMTrainer):
             algo             = hyperopt.tpe.suggest,
             max_evals        = self.parameters["max_evals"],
             trials           = trials,
-            trials_save_file = self.TRIALS_PATH
+            trials_save_file = trials_path
         )
         #
 

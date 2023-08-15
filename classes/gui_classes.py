@@ -11,8 +11,8 @@ from classes.regression_model_trainers.regression_model_trainer_tensorflow impor
 from classes.regression_model_trainers.regression_model_trainer_xgboost import RegressionModelTrainerXGBoost as RMTrainerXGB
 
 class RootWindow(tk.Tk):
-    CONFIG_DIRECTORY = "config.json"
-    OLD_DATASET_DIRECTORY = "old_training_data.csv"
+    CONFIG_PATH = "config.json"
+    OLD_DATASET_PATH = "old_training_data.csv"
 
     dataset:pd.DataFrame
     config = {
@@ -24,7 +24,8 @@ class RootWindow(tk.Tk):
         "label": "",
         "feature_lists": [], # list[list[str]]
         "parameters": {
-            "tensorflow": RMTrainerTF.parameters
+            "tensorflow": RMTrainerTF.parameters,
+            "xgboost": RMTrainerXGB.parameters
         }
     }
     train_button:ttk.Button
@@ -32,24 +33,27 @@ class RootWindow(tk.Tk):
     def __init__(self):
         super().__init__()
 
-        # Load saved config
-        if os.path.exists(self.CONFIG_DIRECTORY):
-            with open(self.CONFIG_DIRECTORY, 'r') as f:
+        # Load saved config #
+        if os.path.exists(self.CONFIG_PATH):
+            with open(self.CONFIG_PATH, 'r') as f:
                 RootWindow.config = json.load(f)
 
-        # Cache original values to check for changes when beginning training
-        try   : self.__old_dataset = pd.read_csv(self.OLD_DATASET_DIRECTORY, header=0)
+        # Cache original values to check for changes when beginning training #
+        try   : self.__old_dataset = pd.read_csv(self.OLD_DATASET_PATH, header=0)
         except: self.__old_dataset = pd.DataFrame()
-        self.__old_label = str(self.config["label"])
+
+        self.__old_label:str = self.config["label"]
         self.__old_feature_lists:list[list[str]] = self.config["feature_lists"].copy()
         self.__old_tf_parameters:dict[str, any] = self.config["parameters"]["tensorflow"].copy()
-
+        self.__old_xgb_parameters:dict[str, any] = self.config["parameters"]["xgboost"].copy()
+        #
+        
         self.title("Regression Model Trainer Setup")
         self.resizable(width=False, height=False)
 
         ttk.Button(self, text="Configure Trainers", command=lambda:ConfigureWindow(self)).grid(column=0, row=0, pady=10)
         RootWindow.train_button = ttk.Button(self, text="Train", command=self.__load_into_training, state="disabled")
-        self.train_button.grid(column=0, row=5)
+        self.train_button.grid(column=0, row=5, pady=10)
 
         AlgorithmFrame(self)
         DataPathFrame(self)
@@ -61,7 +65,7 @@ class RootWindow(tk.Tk):
         super().destroy()
 
         # Save config
-        with open(self.CONFIG_DIRECTORY, 'w') as f:
+        with open(self.CONFIG_PATH, 'w') as f:
             json.dump(self.config, f, indent=4)   
         self.quit()
 
@@ -69,31 +73,40 @@ class RootWindow(tk.Tk):
         self.destroy()
 
         try:
-            rmt:RMTrainer
             RMTrainer.set_dataset_preloaded(self.dataset, self.config["label"])
 
+            # If data, label, features, or parameters change, then clear the previous trials.
+            datasets_equal = self.__old_dataset.equals(self.dataset)
+
+            no_data_label_feature_change:bool = (
+                datasets_equal and
+                self.__old_label == self.config["label"] and
+                self.__old_feature_lists == self.config["feature_lists"]
+            )
+            
+            # Save current as old dataset (if different) #
+            if not datasets_equal:
+                shutil.copy(self.config["data_path"], self.OLD_DATASET_PATH)
+
+            # TensorFlow #
             if self.config["algorithms"]["using_tensorflow"]:
                 RMTrainerTF.parameters = self.config["parameters"]["tensorflow"]
                 
-                # If data, label, features, or parameters change, then clear the previous trials.
-                are_datasets_equal = self.__old_dataset.equals(self.dataset)
                 rmt = RMTrainerTF(
-                    are_datasets_equal and
-                    self.__old_label == self.config["label"] and
-                    self.__old_feature_lists == self.config["feature_lists"] and
+                    no_data_label_feature_change and
                     self.__old_tf_parameters == self.config["parameters"]["tensorflow"]
                 )
-
-                # Save current as old dataset (if different)
-                if not are_datasets_equal:
-                    shutil.copy(self.config["data_path"], self.OLD_DATASET_DIRECTORY)
-
                 for feature_list in self.config["feature_lists"]:
                     rmt.start_training(feature_list)
 
+            # XGBoost #
             if self.config["algorithms"]["using_xgboost"]:
-                #RMTrainerXGB.parameters = self.config["parameters"]["xgboost"]
-                rmt = RMTrainerXGB()
+                RMTrainerXGB.parameters = self.config["parameters"]["xgboost"]
+
+                rmt = RMTrainerXGB(
+                    no_data_label_feature_change and
+                    self.__old_xgb_parameters == self.config["parameters"]["xgboost"]
+                )
                 for feature_list in self.config["feature_lists"]:
                     rmt.start_training(feature_list)
         except:
